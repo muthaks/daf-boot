@@ -1,0 +1,22 @@
+services:
+  daf-remote:
+    image: ${DOCKER_REGISTRY}/credit/daf-boot/daf-remote:${BUILD_NUMBER:-latest}
+    container_name: daf-remote
+    dns:
+      - ${DNS_SERVER}
+    env_file:
+      - env.properties
+    ports:
+      - "${REMOTE_PORT:-14708}:80"
+    restart: unless-stopped
+    networks:
+      - daf_net
+
+networks:
+  daf_net:
+    driver: bridge
+    # Pinned subnet (platform convention, cat-utils docs/DEPLOYMENT.md). An unpinned bridge takes
+    # Docker's next default pool (172.18.0.0/16 …) and hijacks the host route to the registry.
+    ipam:
+      config:
+        - subnet: ${DOCKER_SUBNET:-172.31.100.96/29}

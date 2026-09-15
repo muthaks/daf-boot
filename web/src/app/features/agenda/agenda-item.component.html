@@ -1,0 +1,1779 @@
+<section [attr.aria-label]="title()">
+  <co-content-stack>
+    @if (!hosted) {
+      <co-page-header
+        tone="surface"
+        [title]="title()"
+        [description]="description()"
+        [breadcrumbs]="breadcrumbs()"
+      />
+    }
+
+    @if (loading()) {
+      <co-spinner label="Loading the agenda item" />
+    } @else if (error()) {
+      <co-error-state
+        title="The agenda item could not load"
+        [message]="error()"
+        retryable
+        (retry)="load()"
+      />
+    } @else if (item(); as current) {
+      <!-- ================================================================ Overview -->
+      <co-detail-card
+        heading="Item overview"
+        [description]="description()"
+        icon="pi pi-file"
+      >
+        <co-action-group co-card-actions label="Agenda item actions">
+          <button co-button variant="secondary" size="sm" (click)="back()">
+            <i class="pi pi-arrow-left" aria-hidden="true"></i> Agenda items
+          </button>
+          <button co-button variant="secondary" size="sm" (click)="toDashboard()">
+            <i class="pi pi-calendar" aria-hidden="true"></i> Dashboard
+          </button>
+          <button co-button variant="secondary" size="sm" (click)="openMeeting()">
+            <i class="pi pi-list" aria-hidden="true"></i> View meeting agenda
+          </button>
+          @if (canEdit()) {
+            <button
+              co-button
+              variant="danger"
+              size="sm"
+              (click)="openRemoveDialog(removeDialog)"
+              [disabled]="!canModify() || current.itemStatus === 'Removed' || saving() || editing()"
+            >
+              <i class="pi pi-times" aria-hidden="true"></i> Remove from agenda
+            </button>
+          }
+        </co-action-group>
+        <co-content-stack>
+          @if (locked()) {
+            <co-alert tone="warning" title="Meeting agenda locked">
+              The meeting agenda is locked, so this item can no longer be edited. Ask the meeting
+              secretary or chair to re-open the agenda if a change is needed.
+            </co-alert>
+          }
+          @if (held()) {
+            <co-alert tone="warning" title="Meeting held">
+              The meeting has been held - the agenda is a final record and can no longer be changed.
+              Only the post-meeting capture remains open.
+            </co-alert>
+          }
+          @if (closed()) {
+            <co-alert tone="warning" title="Meeting record closed">
+              The meeting record is <strong>Closed</strong>. Changes require an audited correction by a
+              reviewer.
+            </co-alert>
+          }
+          @if (inWorkflow() && !held() && !closed()) {
+            <co-alert tone="info">
+              This item is <strong>{{ current.itemStatus }}</strong>@if (current.submittedBy) {
+                (submitted by {{ current.submittedBy }} on
+                {{ current.submittedOn | date: "d MMM yyyy, HH:mm" }})}. It is read-only until it is
+              returned or re-opened.
+            </co-alert>
+          }
+          @if (session.error()) {
+            <co-alert tone="danger">{{ session.error() }}</co-alert>
+          }
+          @if (message()) {
+            <co-alert tone="success" dismissible (dismissed)="message.set('')">{{ message() }}</co-alert>
+          }
+          <co-field-grid>
+            <co-stat-card
+              label="Completion"
+              [value]="completionPct() + '%'"
+              delta="Of the submission captured"
+            />
+            <co-stat-card
+              label="Documents"
+              [value]="docs().length"
+              [delta]="paperUploaded() ? 'Credit paper uploaded' : 'Credit paper outstanding'"
+            />
+            <co-stat-card
+              label="Participants"
+              [value]="participantRows().length"
+              delta="Quorum roles and attendees on the item"
+            />
+          </co-field-grid>
+          <co-field-grid>
+            <co-detail-field label="Item status">
+              <co-status [kind]="statusKind(current.itemStatus)">{{ current.itemStatus }}</co-status>
+              @if (current.lateSubmission) {
+                <co-status kind="blocked">Late</co-status>
+              }
+            </co-detail-field>
+            <co-detail-field label="Meeting status">{{ current.meetingStatus || "—" }}</co-detail-field>
+            <co-detail-field label="Committee">
+              {{ current.committeeName }} {{ current.mandateLevel }}
+            </co-detail-field>
+            <co-detail-field label="Meeting date">
+              {{ current.meetingDate | date: "EEE d MMM yyyy" }}
+            </co-detail-field>
+            <co-detail-field label="Time slot">
+              {{ current.startTime || "—" }}@if (current.endTime) { - {{ current.endTime }}}
+            </co-detail-field>
+            <co-detail-field label="Held via">{{ meeting()?.heldVia || "—" }}</co-detail-field>
+            <co-detail-field label="Booking reference">{{ bookingRef() }}</co-detail-field>
+            <co-detail-field label="Submitted by">
+              {{ current.createdBy || "—" }}
+              @if (current.createdOn) { on {{ current.createdOn | date: "d MMM yyyy, HH:mm" }}}
+            </co-detail-field>
+            <co-detail-field label="Post-meeting">{{ postMeetingLabel() }}</co-detail-field>
+          </co-field-grid>
+        </co-content-stack>
+      </co-detail-card>
+
+      <!-- ============================================================ Workflow -->
+      <!-- Review & approval (BRS BR-010): the action available depends on status and role. -->
+      @if (showWorkflow() || workflowMessage() || workflowError()) {
+        <co-detail-card
+          heading="Workflow"
+          description="Review and approval: the actions available depend on the item status and your role."
+          icon="pi pi-sitemap"
+        >
+          <co-action-group co-card-actions label="Workflow actions">
+            @if (canSubmit()) {
+              <button co-button size="sm" (click)="submitItem()" [loading]="workflowSaving()" [disabled]="workflowBusy()">
+                <i class="pi pi-send" aria-hidden="true"></i> Submit for Review
+              </button>
+            }
+            @if (canReview()) {
+              <button co-button variant="secondary" size="sm" (click)="returnItem()" [disabled]="workflowBusy()">
+                <i class="pi pi-reply" aria-hidden="true"></i> Return to Analyst
+              </button>
+            }
+            @if (canApprove()) {
+              <button co-button size="sm" (click)="approveItem()" [disabled]="workflowBusy()">
+                <i class="pi pi-check" aria-hidden="true"></i> Approve
+              </button>
+              <button co-button variant="danger" size="sm" (click)="rejectItem()" [disabled]="workflowBusy()">
+                <i class="pi pi-times" aria-hidden="true"></i> Reject
+              </button>
+            }
+            @if (canReopen()) {
+              <button co-button variant="secondary" size="sm" (click)="reopenItem()" [disabled]="workflowBusy()">
+                <i class="pi pi-replay" aria-hidden="true"></i> Re-open
+              </button>
+            }
+          </co-action-group>
+          <co-content-stack>
+            @if (editing()) {
+              <co-alert tone="info">Save or cancel the item edit before a workflow action.</co-alert>
+            }
+            @if (workflowError()) {
+              <co-alert tone="danger">{{ workflowError() }}</co-alert>
+            }
+            @if (workflowMessage()) {
+              <co-alert tone="success" dismissible (dismissed)="workflowMessage.set('')">{{ workflowMessage() }}</co-alert>
+            }
+            <co-field-grid>
+              <co-detail-field label="Item status">
+                <co-status [kind]="statusKind(current.itemStatus)">{{ current.itemStatus }}</co-status>
+              </co-detail-field>
+              @if (current.quorum; as quorum) {
+                <co-detail-field label="Quorum">
+                  {{ quorum.eligibleCount }}/{{ quorum.required }}
+                  <co-status [kind]="quorum.met ? 'active' : 'blocked'">{{ quorum.met ? "met" : "not met" }}</co-status>
+                  @if (quorum.missingRoles?.length) {
+                    (missing: {{ quorum.missingRoles.join(", ") }})
+                  }
+                </co-detail-field>
+              }
+              @if (current.cutOffOn) {
+                <co-detail-field label="Cut-off">{{ current.cutOffOn | date: "d MMM yyyy, HH:mm" }}</co-detail-field>
+              }
+              @if (current.quorumOverrideReason) {
+                <co-detail-field label="Quorum override reason">{{ current.quorumOverrideReason }}</co-detail-field>
+              }
+            </co-field-grid>
+          </co-content-stack>
+        </co-detail-card>
+      }
+
+      <co-tabs
+        variant="underline"
+        ariaLabel="Agenda item sections"
+        idPrefix="daf-agenda-item"
+        [tabs]="tabs"
+        [active]="tab()"
+        (activeChange)="setTab($event)"
+      />
+
+      @switch (tab()) {
+        <!-- ============================================================== Details -->
+        @case ("details") {
+          <co-detail-card
+            heading="Deal information"
+            description="Counterparty, purpose and sizing of the submission."
+            icon="pi pi-briefcase"
+          >
+            <co-action-group co-card-actions label="Deal information actions">
+              @if (canEdit()) {
+                @if (editing()) {
+                  <button co-button variant="ghost" size="sm" (click)="cancelEdit()" [disabled]="saving()">
+                    Cancel
+                  </button>
+                  <button co-button size="sm" (click)="save()" [loading]="saving()">Save changes</button>
+                } @else {
+                  <button co-button size="sm" (click)="startEdit()" [disabled]="!canModify()">
+                    <i class="pi pi-pencil" aria-hidden="true"></i> Edit item
+                  </button>
+                }
+              }
+            </co-action-group>
+            <co-content-stack>
+              @if (saveError()) {
+                <co-alert tone="danger">{{ saveError() }}</co-alert>
+              }
+              @if (editing()) {
+                <co-field-grid>
+                  <co-field
+                    #cpField
+                    label="Counterparty / deal"
+                    controlId="daf-agi-counterpartyName"
+                    required
+                    [error]="submitted() ? (fieldErrors.counterpartyName ?? '') : ''"
+                  >
+                    <input
+                      id="daf-agi-counterpartyName"
+                      co-input
+                      name="counterpartyName"
+                      [(ngModel)]="form.counterpartyName"
+                      required
+                      maxlength="200"
+                      [disabled]="saving()"
+                      [attr.aria-invalid]="submitted() && !!fieldErrors.counterpartyName"
+                      [attr.aria-describedby]="cpField.descriptionId"
+                      autocomplete="off"
+                    />
+                  </co-field>
+                  <co-field label="Business unit / segment" controlId="daf-agi-businessUnit">
+                    <input
+                      id="daf-agi-businessUnit"
+                      co-input
+                      name="businessUnit"
+                      [(ngModel)]="form.businessUnit"
+                      maxlength="200"
+                      [disabled]="saving()"
+                      autocomplete="off"
+                    />
+                  </co-field>
+                  <co-field
+                    #purposeField
+                    label="Purpose"
+                    controlId="daf-agi-purposeOfSubmission"
+                    required
+                    [error]="submitted() ? (fieldErrors.purposeOfSubmission ?? '') : ''"
+                  >
+                    <co-searchable-select
+                      inputId="daf-agi-purposeOfSubmission"
+                      label="Purpose"
+                      name="purposeOfSubmission"
+                      placeholder="Select the purpose of submission"
+                      [options]="purposeOptions"
+                      [(ngModel)]="form.purposeOfSubmission"
+                      [disabled]="saving()"
+                      [clearable]="false"
+                      [invalid]="submitted() && !!fieldErrors.purposeOfSubmission"
+                      [describedBy]="purposeField.descriptionId"
+                      required
+                    />
+                  </co-field>
+                  <co-field label="Additional details" controlId="daf-agi-purposeDetails">
+                    <input
+                      id="daf-agi-purposeDetails"
+                      co-input
+                      name="purposeDetails"
+                      [(ngModel)]="form.purposeDetails"
+                      maxlength="500"
+                      [disabled]="saving()"
+                      autocomplete="off"
+                    />
+                  </co-field>
+                  <co-field
+                    #dcpField
+                    label="DCP (ZAR)"
+                    controlId="daf-agi-dcpZar"
+                    hint="Digits only; separators are dropped on save."
+                    [error]="submitted() ? (fieldErrors.dcpZar ?? '') : ''"
+                  >
+                    <input
+                      id="daf-agi-dcpZar"
+                      co-input
+                      name="dcpZar"
+                      inputmode="decimal"
+                      [(ngModel)]="form.dcpZar"
+                      [disabled]="saving()"
+                      [attr.aria-invalid]="submitted() && !!fieldErrors.dcpZar"
+                      [attr.aria-describedby]="dcpField.descriptionId"
+                      autocomplete="off"
+                    />
+                  </co-field>
+                  <co-field label="Rating" controlId="daf-agi-ratingBand">
+                    <co-searchable-select
+                      inputId="daf-agi-ratingBand"
+                      label="Rating"
+                      name="ratingBand"
+                      placeholder="Select the rating band"
+                      [options]="ratingOptions"
+                      [(ngModel)]="form.ratingBand"
+                      [disabled]="saving()"
+                    />
+                  </co-field>
+                  <co-field
+                    #pagesField
+                    label="Pages"
+                    controlId="daf-agi-numberOfPages"
+                    [error]="submitted() ? (fieldErrors.numberOfPages ?? '') : ''"
+                  >
+                    <input
+                      id="daf-agi-numberOfPages"
+                      co-input
+                      type="number"
+                      min="0"
+                      name="numberOfPages"
+                      [(ngModel)]="form.numberOfPages"
+                      [disabled]="saving()"
+                      [attr.aria-invalid]="submitted() && !!fieldErrors.numberOfPages"
+                      [attr.aria-describedby]="pagesField.descriptionId"
+                    />
+                  </co-field>
+                  <co-field label="Estimated discussion time" controlId="daf-agi-estimatedMinutes">
+                    <co-searchable-select
+                      inputId="daf-agi-estimatedMinutes"
+                      label="Estimated discussion time"
+                      name="estimatedMinutes"
+                      placeholder="Select the discussion time"
+                      [options]="minuteOptions"
+                      [(ngModel)]="form.estimatedMinutes"
+                      [disabled]="saving()"
+                    />
+                  </co-field>
+                  <co-field
+                    label="Page guidance"
+                    controlId="daf-agi-withinPageGuidance"
+                    [hint]="form.withinPageGuidance ? '' : 'Out-of-guidance papers require Chair approval.'"
+                  >
+                    <co-checkbox
+                      controlId="daf-agi-withinPageGuidance"
+                      label="Within page guidance"
+                      name="withinPageGuidance"
+                      [(ngModel)]="form.withinPageGuidance"
+                      [disabled]="saving()"
+                    />
+                  </co-field>
+                  <!-- DAF no longer lets the user tick Late: it is determined against the meeting cut-off. -->
+                  <co-detail-field label="Late submission">
+                    <co-status [kind]="form.lateSubmission ? 'blocked' : 'active'">{{ form.lateSubmission ? "Yes" : "No" }}</co-status>
+                    Determined against the meeting cut-off@if (current.cutOffOn) {
+                      ({{ current.cutOffOn | date: "d MMM yyyy, HH:mm" }})}; late items need a reason and
+                    Chair approval.
+                  </co-detail-field>
+                </co-field-grid>
+              } @else {
+                <co-field-grid>
+                  <co-detail-field label="Counterparty / deal">{{ current.counterpartyName || "—" }}</co-detail-field>
+                  <co-detail-field label="Business unit / segment">{{ current.businessUnit || "—" }}</co-detail-field>
+                  <co-detail-field label="Purpose">{{ current.purposeOfSubmission || "—" }}</co-detail-field>
+                  <co-detail-field label="Additional details">{{ current.purposeDetails || "—" }}</co-detail-field>
+                  <co-detail-field label="DCP (ZAR)">{{ current.dcpZar ?? "—" }}</co-detail-field>
+                  <co-detail-field label="Rating">{{ current.ratingBand || "—" }}</co-detail-field>
+                  <co-detail-field label="Pages">{{ current.numberOfPages ?? "—" }}</co-detail-field>
+                  <co-detail-field label="Within page guidance">{{ current.withinPageGuidance ? "Yes" : "No" }}</co-detail-field>
+                  <co-detail-field label="Estimated discussion time">
+                    {{ current.estimatedMinutes ? current.estimatedMinutes + " min" : "—" }}
+                  </co-detail-field>
+                  <co-detail-field label="Late submission">{{ current.lateSubmission ? "Yes" : "No" }}</co-detail-field>
+                </co-field-grid>
+              }
+            </co-content-stack>
+          </co-detail-card>
+
+          <co-detail-card
+            heading="Classification & scheduling"
+            description="How the application is classified and where it sits on the agenda."
+            icon="pi pi-clock"
+          >
+            @if (editing()) {
+              <co-field-grid>
+                <co-field label="Applicant relationship" controlId="daf-agi-applicantRelationship">
+                  <co-searchable-select
+                    inputId="daf-agi-applicantRelationship"
+                    label="Applicant relationship"
+                    name="applicantRelationship"
+                    placeholder="Select the relationship"
+                    [options]="relationshipOptions"
+                    [(ngModel)]="form.applicantRelationship"
+                    [disabled]="saving()"
+                  />
+                </co-field>
+                <co-field label="Application type" controlId="daf-agi-applicationType">
+                  <co-searchable-select
+                    inputId="daf-agi-applicationType"
+                    label="Application type"
+                    name="applicationType"
+                    placeholder="Select the application type"
+                    [options]="applicationTypeOptions"
+                    [(ngModel)]="form.applicationType"
+                    [disabled]="saving()"
+                  />
+                </co-field>
+                <co-field label="Round robin" controlId="daf-agi-roundRobin">
+                  <co-checkbox
+                    controlId="daf-agi-roundRobin"
+                    label="Decided by round robin"
+                    name="roundRobin"
+                    [(ngModel)]="form.roundRobin"
+                    [disabled]="saving()"
+                  />
+                </co-field>
+                <co-field label="Country of risk" controlId="daf-agi-countryOfRisk">
+                  <input
+                    id="daf-agi-countryOfRisk"
+                    co-input
+                    name="countryOfRisk"
+                    [(ngModel)]="form.countryOfRisk"
+                    maxlength="100"
+                    [disabled]="saving()"
+                    autocomplete="off"
+                  />
+                </co-field>
+                <co-field label="Industry / classification" controlId="daf-agi-industryClassification">
+                  <input
+                    id="daf-agi-industryClassification"
+                    co-input
+                    name="industryClassification"
+                    [(ngModel)]="form.industryClassification"
+                    maxlength="200"
+                    [disabled]="saving()"
+                    autocomplete="off"
+                  />
+                </co-field>
+                <co-field label="LEC counterparty" controlId="daf-agi-lecCounterparty">
+                  <co-checkbox
+                    controlId="daf-agi-lecCounterparty"
+                    label="LEC counterparty"
+                    name="lecCounterparty"
+                    [(ngModel)]="form.lecCounterparty"
+                    [disabled]="saving()"
+                  />
+                </co-field>
+                <co-field
+                  #startField
+                  label="Start time"
+                  controlId="daf-agi-startTime"
+                  hint="24-hour, e.g. 08:00"
+                  [error]="submitted() ? (fieldErrors.startTime ?? '') : ''"
+                >
+                  <input
+                    id="daf-agi-startTime"
+                    co-input
+                    name="startTime"
+                    placeholder="08:00"
+                    [(ngModel)]="form.startTime"
+                    maxlength="5"
+                    [disabled]="saving()"
+                    [attr.aria-invalid]="submitted() && !!fieldErrors.startTime"
+                    [attr.aria-describedby]="startField.descriptionId"
+                    autocomplete="off"
+                  />
+                </co-field>
+                <co-field
+                  #endField
+                  label="End time"
+                  controlId="daf-agi-endTime"
+                  hint="24-hour, e.g. 08:30"
+                  [error]="submitted() ? (fieldErrors.endTime ?? '') : ''"
+                >
+                  <input
+                    id="daf-agi-endTime"
+                    co-input
+                    name="endTime"
+                    placeholder="08:30"
+                    [(ngModel)]="form.endTime"
+                    maxlength="5"
+                    [disabled]="saving()"
+                    [attr.aria-invalid]="submitted() && !!fieldErrors.endTime"
+                    [attr.aria-describedby]="endField.descriptionId"
+                    autocomplete="off"
+                  />
+                </co-field>
+                <co-field
+                  label="Distribution sensitivities"
+                  controlId="daf-agi-distributionSensitivities"
+                  hint="Detail of distribution sensitivities and confidential issues."
+                >
+                  <textarea
+                    id="daf-agi-distributionSensitivities"
+                    co-input
+                    name="distributionSensitivities"
+                    rows="3"
+                    maxlength="2000"
+                    [(ngModel)]="form.distributionSensitivities"
+                    [disabled]="saving()"
+                  ></textarea>
+                </co-field>
+              </co-field-grid>
+            } @else {
+              <co-field-grid>
+                <co-detail-field label="Applicant relationship">{{ current.applicantRelationship || "—" }}</co-detail-field>
+                <co-detail-field label="Application type">{{ current.applicationType || "—" }}</co-detail-field>
+                <co-detail-field label="Round robin">{{ current.roundRobin ? "Yes" : "No" }}</co-detail-field>
+                <co-detail-field label="Country of risk">{{ current.countryOfRisk || "—" }}</co-detail-field>
+                <co-detail-field label="Industry / classification">{{ current.industryClassification || "—" }}</co-detail-field>
+                <co-detail-field label="LEC counterparty">{{ current.lecCounterparty ? "Yes" : "No" }}</co-detail-field>
+                <co-detail-field label="Start time">{{ current.startTime || "—" }}</co-detail-field>
+                <co-detail-field label="End time">{{ current.endTime || "—" }}</co-detail-field>
+                <co-detail-field label="Distribution sensitivities">{{ current.distributionSensitivities || "—" }}</co-detail-field>
+              </co-field-grid>
+            }
+          </co-detail-card>
+
+          <co-detail-card
+            heading="Distribution & notes"
+            description="Where the proposal has gone and anything the committee should know."
+            icon="pi pi-send"
+          >
+            @if (editing()) {
+              <co-field-grid>
+                <co-field label="Proposal" controlId="daf-agi-proposalReceived">
+                  <co-checkbox
+                    controlId="daf-agi-proposalReceived"
+                    label="Proposal received"
+                    name="proposalReceived"
+                    [(ngModel)]="form.proposalReceived"
+                    [disabled]="saving()"
+                  />
+                </co-field>
+                <co-field label="Email" controlId="daf-agi-proposalDistributedEmail">
+                  <co-checkbox
+                    controlId="daf-agi-proposalDistributedEmail"
+                    label="Distributed via email"
+                    name="proposalDistributedEmail"
+                    [(ngModel)]="form.proposalDistributedEmail"
+                    [disabled]="saving()"
+                  />
+                </co-field>
+                <co-field label="Diligent" controlId="daf-agi-proposalOnDiligent">
+                  <co-checkbox
+                    controlId="daf-agi-proposalOnDiligent"
+                    label="On Diligent"
+                    name="proposalOnDiligent"
+                    [(ngModel)]="form.proposalOnDiligent"
+                    [disabled]="saving()"
+                  />
+                </co-field>
+                <co-field label="Reason for late submission" controlId="daf-agi-lateSubmissionReason">
+                  <input
+                    id="daf-agi-lateSubmissionReason"
+                    co-input
+                    name="lateSubmissionReason"
+                    placeholder="Required when the item is captured or submitted after the cut-off"
+                    [(ngModel)]="form.lateSubmissionReason"
+                    maxlength="500"
+                    [disabled]="saving()"
+                    autocomplete="off"
+                  />
+                </co-field>
+                <co-field label="Comments and notes" controlId="daf-agi-comments">
+                  <textarea
+                    id="daf-agi-comments"
+                    co-input
+                    name="comments"
+                    rows="3"
+                    maxlength="4000"
+                    [(ngModel)]="form.comments"
+                    [disabled]="saving()"
+                  ></textarea>
+                </co-field>
+              </co-field-grid>
+            } @else {
+              <co-field-grid>
+                <co-detail-field label="Proposal received">{{ current.proposalReceived ? "Yes" : "No" }}</co-detail-field>
+                <co-detail-field label="Distributed via email">{{ current.proposalDistributedEmail ? "Yes" : "No" }}</co-detail-field>
+                <co-detail-field label="On Diligent">{{ current.proposalOnDiligent ? "Yes" : "No" }}</co-detail-field>
+                <co-detail-field label="Reason for late submission">{{ current.lateSubmissionReason || "—" }}</co-detail-field>
+                <co-detail-field label="Comments and notes">{{ current.comments || "—" }}</co-detail-field>
+              </co-field-grid>
+            }
+          </co-detail-card>
+
+          @if (needsChairApproval()) {
+            <co-detail-card
+              heading="Chair approvals"
+              description="Late submissions and papers outside the page guidance need the chairperson's approval before the meeting."
+              icon="pi pi-verified"
+            >
+              <co-action-group co-card-actions label="Chair approval actions">
+                @if (current.lateSubmission && !current.lateApprovedOn) {
+                  <button
+                    *dafCan="'agenda.manage'"
+                    co-button
+                    size="sm"
+                    (click)="approveLate()"
+                    [disabled]="readOnly() || editing() || saving()"
+                  >
+                    Approve late submission
+                  </button>
+                }
+                @if (!current.withinPageGuidance && !current.outOfGuidanceApprovedOn) {
+                  <button
+                    *dafCan="'agenda.manage'"
+                    co-button
+                    size="sm"
+                    (click)="approveOutOfGuidance()"
+                    [disabled]="readOnly() || editing() || saving()"
+                  >
+                    Approve out-of-guidance paper
+                  </button>
+                }
+              </co-action-group>
+              <co-field-grid>
+                @if (current.lateSubmission) {
+                  <co-detail-field label="Late submission">
+                    @if (current.lateApprovedOn) {
+                      <co-status kind="active">Approved</co-status>
+                      by {{ current.lateApprovedBy || "—" }} on {{ current.lateApprovedOn | date: "d MMM yyyy, HH:mm" }}
+                    } @else {
+                      <co-status kind="risk">Awaiting chair approval</co-status>
+                    }
+                  </co-detail-field>
+                }
+                @if (!current.withinPageGuidance) {
+                  <co-detail-field label="Out of page guidance">
+                    @if (current.outOfGuidanceApprovedOn) {
+                      <co-status kind="active">Approved</co-status>
+                      by {{ current.outOfGuidanceApprovedBy || "—" }} on
+                      {{ current.outOfGuidanceApprovedOn | date: "d MMM yyyy, HH:mm" }}
+                    } @else {
+                      <co-status kind="risk">Awaiting chair approval</co-status>
+                    }
+                  </co-detail-field>
+                }
+              </co-field-grid>
+            </co-detail-card>
+          }
+        }
+
+        <!-- ================================================================= Team -->
+        @case ("team") {
+          <co-detail-card
+            heading="Team"
+            description="Analysts, sponsors and the credit and business teams on the submission."
+            icon="pi pi-users"
+          >
+            <co-action-group co-card-actions label="Team actions">
+              @if (canEdit()) {
+                @if (editing()) {
+                  <button co-button variant="ghost" size="sm" (click)="cancelEdit()" [disabled]="saving()">
+                    Cancel
+                  </button>
+                  <button co-button size="sm" (click)="save()" [loading]="saving()">Save changes</button>
+                } @else {
+                  <button co-button size="sm" (click)="startEdit()" [disabled]="!canModify()">
+                    <i class="pi pi-pencil" aria-hidden="true"></i> Edit item
+                  </button>
+                }
+              }
+            </co-action-group>
+            <co-content-stack>
+              @if (saveError()) {
+                <co-alert tone="danger">{{ saveError() }}</co-alert>
+              }
+              @if (editing()) {
+                <co-alert tone="info">
+                  People are searched live in RMB Active Directory: type at least two characters of a
+                  name. Names already captured on the item are kept until you remove them.
+                </co-alert>
+                <co-field-grid>
+                  <co-field
+                    #primaryField
+                    label="Primary analyst"
+                    controlId="daf-agi-primaryAnalyst"
+                    required
+                    [error]="submitted() ? (fieldErrors.primaryAnalyst ?? '') : ''"
+                  >
+                    <co-searchable-select
+                      inputId="daf-agi-primaryAnalyst"
+                      label="Primary analyst"
+                      name="primaryAnalyst"
+                      placeholder="Search and select the primary analyst"
+                      emptyMessage="Type at least two characters to search RMB AD"
+                      [options]="optionsFor(form.single.primaryAnalyst)"
+                      [(ngModel)]="form.single.primaryAnalyst"
+                      (searchChange)="userSearch$.next($event)"
+                      [loading]="usersLoading()"
+                      [disabled]="saving()"
+                      [invalid]="submitted() && !!fieldErrors.primaryAnalyst"
+                      [describedBy]="primaryField.descriptionId"
+                      required
+                    />
+                  </co-field>
+                  <co-field label="Review analyst" controlId="daf-agi-reviewAnalyst">
+                    <co-searchable-select
+                      inputId="daf-agi-reviewAnalyst"
+                      label="Review analyst"
+                      name="reviewAnalyst"
+                      placeholder="Search and select the review analyst"
+                      emptyMessage="Type at least two characters to search RMB AD"
+                      [options]="optionsFor(form.single.reviewAnalyst)"
+                      [(ngModel)]="form.single.reviewAnalyst"
+                      (searchChange)="userSearch$.next($event)"
+                      [loading]="usersLoading()"
+                      [disabled]="saving()"
+                    />
+                  </co-field>
+                  <co-field label="Credit sponsor" controlId="daf-agi-creditSponsor">
+                    <co-searchable-select
+                      inputId="daf-agi-creditSponsor"
+                      label="Credit sponsor"
+                      name="creditSponsor"
+                      placeholder="Search and select the credit sponsor"
+                      emptyMessage="Type at least two characters to search RMB AD"
+                      [options]="optionsFor(form.single.creditSponsor)"
+                      [(ngModel)]="form.single.creditSponsor"
+                      (searchChange)="userSearch$.next($event)"
+                      [loading]="usersLoading()"
+                      [disabled]="saving()"
+                    />
+                  </co-field>
+                  <co-field label="BU head" controlId="daf-agi-buHead">
+                    <co-searchable-select
+                      inputId="daf-agi-buHead"
+                      label="BU head"
+                      name="buHead"
+                      placeholder="Search and select the BU head"
+                      emptyMessage="Type at least two characters to search RMB AD"
+                      [options]="optionsFor(form.single.buHead)"
+                      [(ngModel)]="form.single.buHead"
+                      (searchChange)="userSearch$.next($event)"
+                      [loading]="usersLoading()"
+                      [disabled]="saving()"
+                    />
+                  </co-field>
+                </co-field-grid>
+                <!-- TODO co-ds: no multi-select people picker exists; each is composed as a single-pick
+                     search that appends to a removable list. -->
+                <co-field-grid>
+                  @for (picker of teamPickers; track picker.key) {
+                    <co-field [label]="picker.label" [controlId]="'daf-agi-' + picker.key">
+                      <co-searchable-select
+                        [inputId]="'daf-agi-' + picker.key"
+                        [label]="picker.label"
+                        [name]="picker.key"
+                        [placeholder]="picker.placeholder"
+                        emptyMessage="Type at least two characters to search RMB AD"
+                        [options]="users()"
+                        [(ngModel)]="pendingAdd[picker.key]"
+                        (valueChange)="addPerson(picker.key, $event)"
+                        (searchChange)="userSearch$.next($event)"
+                        [loading]="usersLoading()"
+                        [disabled]="saving()"
+                      />
+                      @if (form.people[picker.key].length) {
+                        <co-action-group [label]="picker.label + ' members'">
+                          @for (person of form.people[picker.key]; track $index) {
+                            <button
+                              co-button
+                              variant="secondary"
+                              size="sm"
+                              type="button"
+                              (click)="removePerson(picker.key, $index)"
+                              [disabled]="saving()"
+                              [attr.aria-label]="'Remove ' + person.name"
+                            >
+                              {{ person.name }} <i class="pi pi-times" aria-hidden="true"></i>
+                            </button>
+                          }
+                        </co-action-group>
+                      }
+                    </co-field>
+                  }
+                </co-field-grid>
+              } @else {
+                <co-field-grid>
+                  <co-detail-field label="Primary analyst">{{ current.primaryAnalyst || "—" }}</co-detail-field>
+                  <co-detail-field label="Review analyst">{{ current.reviewAnalyst || "—" }}</co-detail-field>
+                  <co-detail-field label="Credit team">{{ current.creditTeam || "—" }}</co-detail-field>
+                  <co-detail-field label="Business team">{{ current.businessTeam || "—" }}</co-detail-field>
+                  <co-detail-field label="Credit sponsor">{{ current.creditSponsor || "—" }}</co-detail-field>
+                  <co-detail-field label="BU head">{{ current.buHead || "—" }}</co-detail-field>
+                </co-field-grid>
+              }
+            </co-content-stack>
+          </co-detail-card>
+
+          <co-detail-card
+            heading="Committee roster & attendees"
+            description="Search RMB AD; the final quorum is confirmed by the chair."
+            icon="pi pi-id-card"
+          >
+            <co-content-stack>
+              @if (editing()) {
+                @for (group of rosterGroups; track group.title) {
+                  <co-section-heading [heading]="group.title" [description]="group.hint" />
+                  <co-field-grid>
+                    @for (role of group.roles; track role.key) {
+                      <co-field [label]="role.label" [controlId]="'daf-agi-' + role.key">
+                        <co-searchable-select
+                          [inputId]="'daf-agi-' + role.key"
+                          [label]="role.label"
+                          [name]="role.key"
+                          [placeholder]="role.placeholder"
+                          emptyMessage="Type at least two characters to search RMB AD"
+                          [options]="users()"
+                          [(ngModel)]="pendingAdd[role.key]"
+                          (valueChange)="addPerson(role.key, $event)"
+                          (searchChange)="userSearch$.next($event)"
+                          [loading]="usersLoading()"
+                          [disabled]="saving()"
+                        />
+                        @if (form.people[role.key].length) {
+                          <co-action-group [label]="role.label + ' members'">
+                            @for (person of form.people[role.key]; track $index) {
+                              <button
+                                co-button
+                                variant="secondary"
+                                size="sm"
+                                type="button"
+                                (click)="removePerson(role.key, $index)"
+                                [disabled]="saving()"
+                                [attr.aria-label]="'Remove ' + person.name"
+                              >
+                                {{ person.name }} <i class="pi pi-times" aria-hidden="true"></i>
+                              </button>
+                            }
+                          </co-action-group>
+                        }
+                      </co-field>
+                    }
+                  </co-field-grid>
+                }
+                <co-section-heading heading="Overlay & additional attendees" />
+                <co-field-grid>
+                  @for (picker of overlayPickers; track picker.key) {
+                    <co-field [label]="picker.label" [controlId]="'daf-agi-' + picker.key">
+                      <co-searchable-select
+                        [inputId]="'daf-agi-' + picker.key"
+                        [label]="picker.label"
+                        [name]="picker.key"
+                        [placeholder]="picker.placeholder"
+                        emptyMessage="Type at least two characters to search RMB AD"
+                        [options]="users()"
+                        [(ngModel)]="pendingAdd[picker.key]"
+                        (valueChange)="addPerson(picker.key, $event)"
+                        (searchChange)="userSearch$.next($event)"
+                        [loading]="usersLoading()"
+                        [disabled]="saving()"
+                      />
+                      @if (form.people[picker.key].length) {
+                        <co-action-group [label]="picker.label + ' members'">
+                          @for (person of form.people[picker.key]; track $index) {
+                            <button
+                              co-button
+                              variant="secondary"
+                              size="sm"
+                              type="button"
+                              (click)="removePerson(picker.key, $index)"
+                              [disabled]="saving()"
+                              [attr.aria-label]="'Remove ' + person.name"
+                            >
+                              {{ person.name }} <i class="pi pi-times" aria-hidden="true"></i>
+                            </button>
+                          }
+                        </co-action-group>
+                      }
+                    </co-field>
+                  }
+                </co-field-grid>
+              } @else {
+                @for (group of rosterGroups; track group.title) {
+                  <co-section-heading [heading]="group.title" [description]="group.hint" />
+                  <co-field-grid>
+                    @for (role of group.roles; track role.key) {
+                      <co-detail-field [label]="role.label">{{ current[role.key] || "—" }}</co-detail-field>
+                    }
+                  </co-field-grid>
+                }
+                <co-section-heading heading="Overlay & additional attendees" />
+                <co-field-grid>
+                  @for (picker of overlayPickers; track picker.key) {
+                    <co-detail-field [label]="picker.label">{{ current[picker.key] || "—" }}</co-detail-field>
+                  }
+                </co-field-grid>
+              }
+            </co-content-stack>
+          </co-detail-card>
+
+          <co-detail-card
+            heading="Participants"
+            description="Everyone on the item: quorum roles are required, overlay and additional attendees are optional."
+            icon="pi pi-check-square"
+          >
+            <p-table
+              [value]="participantRows()"
+              [scrollable]="true"
+              dataKey="name"
+              aria-label="Agenda item participants"
+            >
+              <ng-template #header>
+                <tr>
+                  <th scope="col">#</th>
+                  <th scope="col">Name</th>
+                  <th scope="col">Role</th>
+                  <th scope="col">Attendance</th>
+                </tr>
+              </ng-template>
+              <ng-template #body let-row let-i="rowIndex">
+                <tr>
+                  <td>{{ i + 1 }}</td>
+                  <td>{{ row.name }}</td>
+                  <td>{{ row.role }}</td>
+                  <td>
+                    <co-status [kind]="row.attendance === 'Required' ? 'info' : 'neutral'">{{ row.attendance }}</co-status>
+                  </td>
+                </tr>
+              </ng-template>
+              <ng-template #emptymessage>
+                <tr>
+                  <td colspan="4">
+                    <co-empty-state
+                      title="No participants captured"
+                      hint="Add quorum roles and attendees under Team to build the participant list."
+                    />
+                  </td>
+                </tr>
+              </ng-template>
+            </p-table>
+          </co-detail-card>
+        }
+
+        <!-- ============================================================ Documents -->
+        @case ("documents") {
+          <co-detail-card
+            heading="Documents"
+            description="The credit paper confirms the slot; annexures and supporting documents travel with it."
+            icon="pi pi-file-pdf"
+          >
+            <co-content-stack>
+              @if (current.itemStatus === "Captured") {
+                <co-alert tone="warning" title="Slot not yet confirmed">
+                  This slot is not confirmed until the credit paper (PDF) is uploaded. If it is not
+                  uploaded by the committee cut-off, the item will be removed automatically.
+                </co-alert>
+              }
+              @if (uploadError()) {
+                <co-alert tone="danger">{{ uploadError() }}</co-alert>
+              }
+              @if (uploadMessage()) {
+                <co-alert tone="success" dismissible (dismissed)="uploadMessage.set('')">{{ uploadMessage() }}</co-alert>
+              }
+              <p-table [value]="docs()" [scrollable]="true" dataKey="agidId" aria-label="Agenda item documents">
+                <ng-template #header>
+                  <tr>
+                    <th scope="col">Document type</th>
+                    <th scope="col">File</th>
+                    <th scope="col">Ver.</th>
+                    <th scope="col">Mandatory</th>
+                    <th scope="col">Validation</th>
+                    <th scope="col">Uploaded by</th>
+                    <th scope="col">Uploaded on</th>
+                    <th scope="col"><span class="sr-only">Actions</span></th>
+                  </tr>
+                </ng-template>
+                <ng-template #body let-row>
+                  <tr>
+                    <td>{{ row.docType }}</td>
+                    <td>{{ row.fileName }}</td>
+                    <td>{{ row.version ?? "—" }}</td>
+                    <td>{{ row.mandatory ? "Yes" : "No" }}</td>
+                    <td>
+                      <co-status [kind]="validationKind(row.validationStatus)">{{ row.validationStatus || "Pending" }}</co-status>
+                      @if (row.validatedBy) {
+                        <div>
+                          {{ row.validatedBy }} {{ row.validatedOn | date: "d MMM yyyy" }}@if (row.validationComment) {: {{ row.validationComment }}}
+                        </div>
+                      }
+                    </td>
+                    <td>{{ row.uploadedBy }}</td>
+                    <td>{{ row.uploadedOn | date: "d MMM yyyy, HH:mm" }}</td>
+                    <td>
+                      <co-action-group [label]="'Actions for ' + row.fileName">
+                        <button co-button variant="secondary" size="sm" (click)="download(row)">
+                          <i class="pi pi-download" aria-hidden="true"></i> Download
+                        </button>
+                        @if (canValidateDocuments() && row.validationStatus !== "Superseded" && !closed()) {
+                          <button co-button size="sm" (click)="validateDocument(row, 'Accepted')" [disabled]="docSaving()">
+                            <i class="pi pi-check" aria-hidden="true"></i> Accept
+                          </button>
+                          <button co-button variant="danger" size="sm" (click)="validateDocument(row, 'Rejected')" [disabled]="docSaving()">
+                            <i class="pi pi-times" aria-hidden="true"></i> Reject
+                          </button>
+                        }
+                      </co-action-group>
+                    </td>
+                  </tr>
+                </ng-template>
+                <ng-template #emptymessage>
+                  <tr>
+                    <td colspan="8">
+                      <co-empty-state
+                        title="No documents uploaded yet"
+                        [hint]="
+                          canModify()
+                            ? 'Upload the credit paper and related documents below.'
+                            : 'Documents appear here once the analyst uploads them.'
+                        "
+                      />
+                    </td>
+                  </tr>
+                </ng-template>
+              </p-table>
+              @if (canEdit()) {
+                <co-section-heading
+                  heading="Upload a document"
+                  [description]="
+                    canModify()
+                      ? 'PDF only. Uploading the credit paper confirms the agenda slot.'
+                      : 'Uploads are closed while the meeting agenda is locked or held.'
+                  "
+                />
+                <co-field-grid>
+                  <co-field label="Document type" controlId="daf-agi-docType" required>
+                    <co-searchable-select
+                      inputId="daf-agi-docType"
+                      label="Document type"
+                      name="docType"
+                      placeholder="Select a document type"
+                      [options]="documentTypeOptions"
+                      [(ngModel)]="docType"
+                      [clearable]="false"
+                      [searchable]="false"
+                      [disabled]="uploading() || !canModify()"
+                      required
+                    />
+                  </co-field>
+                  <co-field
+                    #fileField
+                    label="File"
+                    controlId="daf-agi-file"
+                    hint="PDF, as distributed to the committee."
+                    required
+                    [error]="fileError()"
+                  >
+                    <input
+                      id="daf-agi-file"
+                      co-input
+                      type="file"
+                      name="file"
+                      accept="application/pdf"
+                      (change)="onFileSelected($event)"
+                      [disabled]="uploading() || !canModify()"
+                      [attr.aria-invalid]="!!fileError()"
+                      [attr.aria-describedby]="fileField.descriptionId"
+                    />
+                  </co-field>
+                </co-field-grid>
+                <co-action-group label="Upload actions">
+                  <button co-button (click)="upload()" [loading]="uploading()" [disabled]="!canModify()">
+                    <i class="pi pi-upload" aria-hidden="true"></i> Upload document
+                  </button>
+                </co-action-group>
+              }
+            </co-content-stack>
+          </co-detail-card>
+        }
+
+        <!-- ======================================================= Workflow history -->
+        @case ("workflow") {
+          <co-detail-card
+            heading="Workflow history"
+            description="Actor, action, timestamp and reason for every workflow step (BRS 6.6)."
+            icon="pi pi-history"
+          >
+            <p-table
+              [value]="current.actions ?? []"
+              [scrollable]="true"
+              [paginator]="(current.actions?.length ?? 0) > 15"
+              [rows]="15"
+              dataKey="agwId"
+              aria-label="Workflow actions on this agenda item"
+            >
+              <ng-template #header>
+                <tr>
+                  <th scope="col">When</th>
+                  <th scope="col">Action</th>
+                  <th scope="col">From</th>
+                  <th scope="col">To</th>
+                  <th scope="col">By</th>
+                  <th scope="col">Reason / comments</th>
+                  <th scope="col">Override</th>
+                </tr>
+              </ng-template>
+              <ng-template #body let-row>
+                <tr>
+                  <td>{{ row.actionOn | date: "d MMM yyyy, HH:mm" }}</td>
+                  <td>{{ row.action }}</td>
+                  <td>{{ row.fromStatus || "—" }}</td>
+                  <td>{{ row.toStatus || "—" }}</td>
+                  <td>{{ row.actionBy || "—" }}</td>
+                  <td>{{ row.comments || "—" }}</td>
+                  <td>
+                    @if (row.overrideFlag) {
+                      <co-status kind="risk">Override: {{ row.overrideReason }}</co-status>
+                    }
+                  </td>
+                </tr>
+              </ng-template>
+              <ng-template #emptymessage>
+                <tr>
+                  <td colspan="7">
+                    <co-empty-state title="No workflow actions recorded yet." />
+                  </td>
+                </tr>
+              </ng-template>
+            </p-table>
+          </co-detail-card>
+        }
+
+        <!-- ========================================================= Post-meeting -->
+        @case ("post-meeting") {
+          <co-detail-card
+            heading="Post-meeting capture"
+            description="The committee's decision, conditions and actuals, signed off by the analyst and the chair."
+            icon="pi pi-check-circle"
+          >
+            <co-action-group co-card-actions label="Post-meeting actions">
+              @if (pmLocked()) {
+                <button
+                  *dafCan="'agenda.unlockPostMeeting'"
+                  co-button
+                  variant="danger"
+                  size="sm"
+                  (click)="unlockPostMeeting()"
+                  [disabled]="pmSaving()"
+                >
+                  <i class="pi pi-lock-open" aria-hidden="true"></i> Unlock
+                </button>
+              }
+            </co-action-group>
+            <co-content-stack>
+              @if (!held()) {
+                <co-alert tone="info">
+                  Post-meeting capture unlocks once the meeting has taken place and been marked as
+                  <strong>Held</strong>.
+                </co-alert>
+              }
+              @if (pmLocked()) {
+                <co-alert tone="warning" title="Record locked">
+                  This post-meeting record was locked on chair sign-off@if (postMeeting()?.lockedBy) {
+                    by {{ postMeeting()?.lockedBy }}}@if (postMeeting()?.lockedOn) {
+                    on {{ postMeeting()?.lockedOn | date: "d MMM yyyy, HH:mm" }}}. Only a reviewer can
+                  unlock it for further edits.
+                </co-alert>
+              }
+              @if (pmError()) {
+                <co-alert tone="danger">{{ pmError() }}</co-alert>
+              }
+              @if (pmMessage()) {
+                <co-alert tone="success" dismissible (dismissed)="pmMessage.set('')">{{ pmMessage() }}</co-alert>
+              }
+              <co-field-grid>
+                <co-detail-field label="Analyst sign-off">
+                  @if (postMeeting()?.analystSignOffOn) {
+                    <co-status kind="active">Signed off</co-status>
+                    by {{ postMeeting()?.analystSignOffBy || "—" }} on
+                    {{ postMeeting()?.analystSignOffOn | date: "d MMM yyyy, HH:mm" }}
+                  } @else {
+                    <co-status kind="neutral">Outstanding</co-status>
+                  }
+                </co-detail-field>
+                <co-detail-field label="Chair sign-off">
+                  @if (postMeeting()?.chairSignOffOn) {
+                    <co-status kind="active">Signed off</co-status>
+                    by {{ postMeeting()?.chairSignOffBy || "—" }} on
+                    {{ postMeeting()?.chairSignOffOn | date: "d MMM yyyy, HH:mm" }}
+                  } @else {
+                    <co-status kind="neutral">Outstanding</co-status>
+                  }
+                </co-detail-field>
+                <co-detail-field label="Record">
+                  <co-status [kind]="pmLocked() ? 'blocked' : 'info'">{{ pmLocked() ? "Locked" : "Open" }}</co-status>
+                </co-detail-field>
+              </co-field-grid>
+              <form id="daf-agi-post-meeting-form" (ngSubmit)="savePostMeeting()" novalidate>
+                <co-field-grid>
+                  <co-field label="Decision type" controlId="daf-agi-decisionType">
+                    <co-searchable-select
+                      inputId="daf-agi-decisionType"
+                      label="Decision type"
+                      name="decisionType"
+                      placeholder="Select the decision type"
+                      [options]="decisionTypeOptions"
+                      [(ngModel)]="pm.decisionType"
+                      [searchable]="false"
+                      [disabled]="pmDisabled()"
+                    />
+                  </co-field>
+                  <co-field label="Decision date" controlId="daf-agi-decisionDate">
+                    <input
+                      id="daf-agi-decisionDate"
+                      co-input
+                      type="date"
+                      name="decisionDate"
+                      [(ngModel)]="pm.decisionDate"
+                      [disabled]="pmDisabled()"
+                    />
+                  </co-field>
+                  <co-field
+                    #decisionField
+                    label="Decision"
+                    controlId="daf-agi-decision"
+                    [error]="pmSubmitted() ? (pmErrors.decision ?? '') : ''"
+                  >
+                    <co-searchable-select
+                      inputId="daf-agi-decision"
+                      label="Decision"
+                      name="decision"
+                      placeholder="Select the committee's decision"
+                      [options]="decisionOptions"
+                      [(ngModel)]="pm.decision"
+                      [disabled]="pmDisabled()"
+                      [invalid]="pmSubmitted() && !!pmErrors.decision"
+                      [describedBy]="decisionField.descriptionId"
+                    />
+                  </co-field>
+                  <co-field label="Actual time (min)" controlId="daf-agi-actualMinutes">
+                    <input
+                      id="daf-agi-actualMinutes"
+                      co-input
+                      type="number"
+                      min="0"
+                      name="actualMinutes"
+                      [(ngModel)]="pm.actualMinutes"
+                      [disabled]="pmDisabled()"
+                    />
+                  </co-field>
+                  <co-field label="Actual pages" controlId="daf-agi-actualPages">
+                    <input
+                      id="daf-agi-actualPages"
+                      co-input
+                      type="number"
+                      min="0"
+                      name="actualPages"
+                      [(ngModel)]="pm.actualPages"
+                      [disabled]="pmDisabled()"
+                    />
+                  </co-field>
+                  <co-field label="Actual rating" controlId="daf-agi-actualRating">
+                    <input
+                      id="daf-agi-actualRating"
+                      co-input
+                      name="actualRating"
+                      [(ngModel)]="pm.actualRating"
+                      maxlength="50"
+                      [disabled]="pmDisabled()"
+                      autocomplete="off"
+                    />
+                  </co-field>
+                  <co-field label="Actual DCP (ZAR)" controlId="daf-agi-actualDcp">
+                    <input
+                      id="daf-agi-actualDcp"
+                      co-input
+                      type="number"
+                      min="0"
+                      name="actualDcp"
+                      [(ngModel)]="pm.actualDcp"
+                      [disabled]="pmDisabled()"
+                    />
+                  </co-field>
+                  <co-field label="Date of CC" controlId="daf-agi-dateOfCc">
+                    <input
+                      id="daf-agi-dateOfCc"
+                      co-input
+                      type="date"
+                      name="dateOfCc"
+                      [(ngModel)]="pm.dateOfCc"
+                      [disabled]="pmDisabled()"
+                    />
+                  </co-field>
+                  <co-field label="Actual purpose" controlId="daf-agi-actualPurpose">
+                    <input
+                      id="daf-agi-actualPurpose"
+                      co-input
+                      name="actualPurpose"
+                      [(ngModel)]="pm.actualPurpose"
+                      maxlength="500"
+                      [disabled]="pmDisabled()"
+                      autocomplete="off"
+                    />
+                  </co-field>
+                  <co-field label="Credit conditions" controlId="daf-agi-creditConditions">
+                    <textarea
+                      id="daf-agi-creditConditions"
+                      co-input
+                      name="creditConditions"
+                      rows="4"
+                      maxlength="4000"
+                      [(ngModel)]="pm.creditConditions"
+                      [disabled]="pmDisabled()"
+                    ></textarea>
+                  </co-field>
+                  <co-field label="Attendees present" controlId="daf-agi-attendeesPresent">
+                    <input
+                      id="daf-agi-attendeesPresent"
+                      co-input
+                      name="attendeesPresent"
+                      [(ngModel)]="pm.attendeesPresent"
+                      maxlength="2000"
+                      [disabled]="pmDisabled()"
+                      autocomplete="off"
+                    />
+                  </co-field>
+                  <co-field label="Minute taker" controlId="daf-agi-minuteTaker">
+                    <input
+                      id="daf-agi-minuteTaker"
+                      co-input
+                      name="minuteTaker"
+                      [(ngModel)]="pm.minuteTaker"
+                      maxlength="200"
+                      [disabled]="pmDisabled()"
+                      autocomplete="off"
+                    />
+                  </co-field>
+                  <co-field label="Scribe" controlId="daf-agi-pmScribe">
+                    <input
+                      id="daf-agi-pmScribe"
+                      co-input
+                      name="scribe"
+                      [(ngModel)]="pm.scribe"
+                      maxlength="200"
+                      [disabled]="pmDisabled()"
+                      autocomplete="off"
+                    />
+                  </co-field>
+                  <co-field label="Administrator" controlId="daf-agi-administrator">
+                    <input
+                      id="daf-agi-administrator"
+                      co-input
+                      name="administrator"
+                      [(ngModel)]="pm.administrator"
+                      maxlength="200"
+                      [disabled]="pmDisabled()"
+                      autocomplete="off"
+                    />
+                  </co-field>
+                </co-field-grid>
+              </form>
+              @if (canEdit()) {
+                <co-action-group label="Post-meeting capture actions">
+                  <button
+                    co-button
+                    type="submit"
+                    form="daf-agi-post-meeting-form"
+                    [loading]="pmSaving()"
+                    [disabled]="pmDisabled()"
+                  >
+                    Save post-meeting capture
+                  </button>
+                  <button
+                    co-button
+                    variant="secondary"
+                    (click)="signOffAnalyst()"
+                    [disabled]="pmDisabled() || !!postMeeting()?.analystSignOffOn"
+                  >
+                    <i class="pi pi-check" aria-hidden="true"></i> Sign off as analyst
+                  </button>
+                  <button
+                    *dafCan="'agenda.manage'"
+                    co-button
+                    variant="secondary"
+                    (click)="signOffChair()"
+                    [disabled]="pmDisabled() || !!postMeeting()?.chairSignOffOn"
+                  >
+                    <i class="pi pi-lock" aria-hidden="true"></i> Sign off as chair
+                  </button>
+                </co-action-group>
+              }
+            </co-content-stack>
+          </co-detail-card>
+
+          <!-- Actual attendance per participant (RULE-006: planned, invitation and actual kept apart) -->
+          @if (held() && attendance().length > 0) {
+            <co-detail-card
+              heading="Actual attendance"
+              description="Planned attendance, invitation status and who actually attended, per participant."
+              icon="pi pi-user-plus"
+            >
+              <co-content-stack>
+                @if (attendanceError()) {
+                  <co-alert tone="danger">{{ attendanceError() }}</co-alert>
+                }
+                @if (attendanceMessage()) {
+                  <co-alert tone="success" dismissible (dismissed)="attendanceMessage.set('')">{{ attendanceMessage() }}</co-alert>
+                }
+                <p-table [value]="attendance()" [scrollable]="true" aria-label="Actual attendance per participant">
+                  <ng-template #header>
+                    <tr>
+                      <th scope="col">Name</th>
+                      <th scope="col">Role</th>
+                      <th scope="col">Quorum</th>
+                      <th scope="col">Planned</th>
+                      <th scope="col">Invitation</th>
+                      <th scope="col">Attended</th>
+                    </tr>
+                  </ng-template>
+                  <ng-template #body let-p let-i="rowIndex">
+                    <tr>
+                      <td>{{ p.personName }}</td>
+                      <td>{{ p.committeeRole }}</td>
+                      <td>{{ p.quorumEligible ? "Yes" : "No" }}</td>
+                      <td>{{ p.plannedAttendance || "-" }}</td>
+                      <td>{{ p.invitationStatus || "-" }}</td>
+                      <td>
+                        <co-checkbox
+                          [controlId]="'daf-agi-attended-' + i"
+                          label="Attended"
+                          [(ngModel)]="p.actualAttendance"
+                          [disabled]="!p.agpId || closed() || attendanceSaving()"
+                        />
+                      </td>
+                    </tr>
+                  </ng-template>
+                </p-table>
+                @if (!attendance()[0].agpId) {
+                  <co-alert tone="info">
+                    Participants on this item were captured as names only (before the participant
+                    register); re-save the roster to record attendance per person.
+                  </co-alert>
+                }
+                <co-action-group label="Attendance actions">
+                  <button co-button (click)="saveAttendance()" [loading]="attendanceSaving()" [disabled]="closed()">
+                    Save Attendance
+                  </button>
+                </co-action-group>
+              </co-content-stack>
+            </co-detail-card>
+          }
+        }
+
+        <!-- ================================================== Conditions & actions -->
+        @case ("conditions") {
+          <co-detail-card
+            heading="Conditions & actions"
+            description="Credit conditions, actions and follow-ups raised at the meeting, tracked to closure (BRS 6.8)."
+            icon="pi pi-list-check"
+          >
+            <co-content-stack>
+              @if (!held() && !closed()) {
+                <co-alert tone="info">
+                  Conditions and actions are captured once the meeting has taken place and been marked
+                  as <strong>Held</strong>.
+                </co-alert>
+              } @else {
+                @if (conditionsError()) {
+                  <co-alert tone="danger">{{ conditionsError() }}</co-alert>
+                }
+                @if (conditionsMessage()) {
+                  <co-alert tone="success" dismissible (dismissed)="conditionsMessage.set('')">{{ conditionsMessage() }}</co-alert>
+                }
+                <p-table [value]="conditions()" [scrollable]="true" aria-label="Conditions and actions on this agenda item">
+                  <ng-template #header>
+                    <tr>
+                      <th scope="col">Type</th>
+                      <th scope="col">Description</th>
+                      <th scope="col">Owner</th>
+                      <th scope="col">Due date</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Evidence</th>
+                      <th scope="col"><span class="sr-only">Actions</span></th>
+                    </tr>
+                  </ng-template>
+                  <ng-template #body let-c let-i="rowIndex">
+                    <tr>
+                      <td>
+                        <co-searchable-select
+                          [inputId]="'daf-agi-condition-type-' + i"
+                          [label]="'Type, row ' + (i + 1)"
+                          [options]="conditionTypeOptions(c.conditionType)"
+                          [(ngModel)]="c.conditionType"
+                          [clearable]="false"
+                          [searchable]="false"
+                          [disabled]="conditionLocked(c) || conditionsSaving()"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          co-input
+                          [id]="'daf-agi-condition-description-' + i"
+                          [attr.aria-label]="'Description, row ' + (i + 1)"
+                          [(ngModel)]="c.description"
+                          maxlength="4000"
+                          [disabled]="conditionLocked(c) || conditionsSaving()"
+                          autocomplete="off"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          co-input
+                          [id]="'daf-agi-condition-owner-' + i"
+                          [attr.aria-label]="'Owner, row ' + (i + 1)"
+                          [(ngModel)]="c.ownerName"
+                          maxlength="200"
+                          [disabled]="conditionLocked(c) || conditionsSaving()"
+                          autocomplete="off"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          co-input
+                          type="date"
+                          [id]="'daf-agi-condition-due-' + i"
+                          [attr.aria-label]="'Due date, row ' + (i + 1)"
+                          [ngModel]="dateInput(c.dueDate)"
+                          (ngModelChange)="c.dueDate = $event"
+                          [disabled]="conditionLocked(c) || conditionsSaving()"
+                        />
+                      </td>
+                      <td>
+                        @if (conditionFinal(c)) {
+                          <co-status kind="active">{{ c.status }}</co-status>
+                        } @else {
+                          <co-searchable-select
+                            [inputId]="'daf-agi-condition-status-' + i"
+                            [label]="'Status, row ' + (i + 1)"
+                            [options]="conditionStatusOptions(c.status)"
+                            [(ngModel)]="c.status"
+                            [clearable]="false"
+                            [searchable]="false"
+                            [disabled]="closed() || conditionsSaving()"
+                          />
+                        }
+                      </td>
+                      <td>
+                        <input
+                          co-input
+                          [id]="'daf-agi-condition-evidence-' + i"
+                          [attr.aria-label]="'Evidence, row ' + (i + 1)"
+                          [(ngModel)]="c.evidenceRef"
+                          maxlength="500"
+                          [disabled]="conditionLocked(c) || conditionsSaving()"
+                          autocomplete="off"
+                        />
+                      </td>
+                      <td>
+                        <co-action-group [label]="'Actions, row ' + (i + 1)">
+                          @if (c.agcaId > 0 && !conditionFinal(c) && !closed()) {
+                            <button co-button size="sm" (click)="closeCondition(c, 'Closed')" [disabled]="conditionsSaving()">
+                              Close
+                            </button>
+                            <button co-button variant="secondary" size="sm" (click)="closeCondition(c, 'Waived')" [disabled]="conditionsSaving()">
+                              Waive
+                            </button>
+                          }
+                          @if (!conditionFinal(c) && !closed()) {
+                            <button
+                              co-button
+                              variant="danger"
+                              size="sm"
+                              (click)="removeCondition(c)"
+                              [disabled]="conditionsSaving()"
+                              [attr.aria-label]="'Remove condition, row ' + (i + 1)"
+                            >
+                              <i class="pi pi-times" aria-hidden="true"></i>
+                            </button>
+                          }
+                        </co-action-group>
+                      </td>
+                    </tr>
+                  </ng-template>
+                  <ng-template #emptymessage>
+                    <tr>
+                      <td colspan="7">
+                        <co-empty-state title="No conditions or actions captured." />
+                      </td>
+                    </tr>
+                  </ng-template>
+                </p-table>
+                <co-action-group label="Condition actions">
+                  <button co-button variant="secondary" (click)="addCondition()" [disabled]="conditionsSaving() || closed()">
+                    <i class="pi pi-plus" aria-hidden="true"></i> Add Condition / Action
+                  </button>
+                  <button co-button (click)="saveConditions()" [loading]="conditionsSaving()" [disabled]="closed()">
+                    Save Conditions
+                  </button>
+                </co-action-group>
+              }
+            </co-content-stack>
+          </co-detail-card>
+        }
+
+        <!-- ======================================================== Notifications -->
+        @case ("notifications") {
+          <co-detail-card
+            heading="Notifications"
+            description="E-mails sent for this item."
+            icon="pi pi-envelope"
+          >
+            <co-action-group co-card-actions label="Notification actions">
+              <button co-button variant="secondary" size="sm" (click)="loadNotifications()">
+                <i class="pi pi-refresh" aria-hidden="true"></i> Refresh
+              </button>
+            </co-action-group>
+            <co-content-stack>
+              @if (notificationsError()) {
+                <co-error-state
+                  title="Notifications could not load"
+                  [message]="notificationsError()"
+                  retryable
+                  (retry)="loadNotifications()"
+                />
+              } @else {
+                <p-table
+                  [value]="notifications()"
+                  [scrollable]="true"
+                  [paginator]="notifications().length > 15"
+                  [rows]="15"
+                  sortMode="single"
+                  sortField="sentOn"
+                  [sortOrder]="-1"
+                  dataKey="agnId"
+                  aria-label="Notifications sent for this agenda item"
+                >
+                  <ng-template #header>
+                    <tr>
+                      <th scope="col" pSortableColumn="sentOn">When <p-sortIcon field="sentOn" /></th>
+                      <th scope="col" pSortableColumn="notificationType">
+                        Type <p-sortIcon field="notificationType" />
+                      </th>
+                      <th scope="col" pSortableColumn="status">Status <p-sortIcon field="status" /></th>
+                      <th scope="col">Recipients</th>
+                      <th scope="col">Subject</th>
+                    </tr>
+                  </ng-template>
+                  <ng-template #body let-row>
+                    <tr>
+                      <td>{{ row.sentOn | date: "d MMM yyyy, HH:mm" }}</td>
+                      <td>{{ row.notificationType }}</td>
+                      <td>
+                        <co-status [kind]="notificationKind(row.status)">{{ row.status }}</co-status>
+                        @if (row.errorMessage) {
+                          <div>{{ row.errorMessage }}</div>
+                        }
+                      </td>
+                      <td>{{ row.recipients || "—" }}</td>
+                      <td>{{ row.subject || "—" }}</td>
+                    </tr>
+                  </ng-template>
+                  <ng-template #emptymessage>
+                    <tr>
+                      <td colspan="5">
+                        <co-empty-state
+                          title="No notifications yet"
+                          hint="Mails sent for this item (booking, reminders, removal) are listed here."
+                        />
+                      </td>
+                    </tr>
+                  </ng-template>
+                </p-table>
+              }
+              <co-alert tone="info">
+                In non-PROD, mail is redirected to the test inbox - "Sent" means it reached the mail
+                service, not the live recipients.
+              </co-alert>
+            </co-content-stack>
+          </co-detail-card>
+        }
+      }
+    }
+  </co-content-stack>
+</section>
+
+<ng-template #removeDialog>
+  <co-dialog-layout heading="Remove from agenda" titleId="daf-agenda-remove-title">
+    <form id="daf-agenda-remove-form" (ngSubmit)="confirmRemove()" novalidate>
+      <co-content-stack>
+        <co-alert tone="warning">
+          The item comes off the meeting agenda and the analyst and attendees are notified. The
+          record is kept as Removed.
+        </co-alert>
+        <co-field
+          #reasonField
+          label="Reason"
+          controlId="daf-agi-removeReason"
+          hint="Shown in the removal notification and kept on the item."
+          required
+          [error]="removeReasonError"
+        >
+          <textarea
+            id="daf-agi-removeReason"
+            co-input
+            name="removeReason"
+            rows="4"
+            required
+            maxlength="1000"
+            [(ngModel)]="removeReason"
+            [disabled]="removing()"
+            [attr.aria-invalid]="!!removeReasonError"
+            [attr.aria-describedby]="reasonField.descriptionId"
+          ></textarea>
+        </co-field>
+      </co-content-stack>
+    </form>
+    <button co-button co-dialog-actions variant="ghost" (click)="closeRemoveDialog()" [disabled]="removing()">
+      Cancel
+    </button>
+    <button
+      co-button
+      co-dialog-actions
+      variant="danger"
+      type="submit"
+      form="daf-agenda-remove-form"
+      [loading]="removing()"
+    >
+      Remove item
+    </button>
+  </co-dialog-layout>
+</ng-template>
+
+<ng-template #reasonDialog>
+  @if (reasonPrompt(); as prompt) {
+    <co-dialog-layout [heading]="prompt.heading" titleId="daf-agenda-reason-title">
+      <form id="daf-agenda-reason-form" (ngSubmit)="confirmReason()" novalidate>
+        <co-content-stack>
+          @if (prompt.notice) {
+            <co-alert [tone]="prompt.kind === 'submit' || prompt.kind === 'reopen' ? 'warning' : 'info'">
+              {{ prompt.notice }}
+            </co-alert>
+          }
+          <co-field
+            #promptField
+            [label]="prompt.label"
+            controlId="daf-agi-reason"
+            [required]="prompt.required"
+            [optional]="!prompt.required"
+            [error]="reasonError"
+          >
+            <textarea
+              id="daf-agi-reason"
+              co-input
+              name="reason"
+              rows="4"
+              maxlength="1000"
+              [required]="prompt.required"
+              [(ngModel)]="reasonText"
+              [attr.aria-invalid]="!!reasonError"
+              [attr.aria-describedby]="promptField.descriptionId"
+            ></textarea>
+          </co-field>
+        </co-content-stack>
+      </form>
+      <button co-button co-dialog-actions variant="ghost" (click)="closeReasonDialog()">Cancel</button>
+      <button co-button co-dialog-actions [variant]="prompt.variant" type="submit" form="daf-agenda-reason-form">
+        {{ prompt.confirmLabel }}
+      </button>
+    </co-dialog-layout>
+  }
+</ng-template>

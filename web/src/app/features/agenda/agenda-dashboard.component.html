@@ -1,0 +1,493 @@
+<section aria-label="Committee dashboard">
+  <co-content-stack>
+    @if (!hosted) {
+      <co-page-header
+        tone="surface"
+        title="Committee dashboard"
+        description="Meeting schedule and running order for the next two weeks."
+        [breadcrumbs]="breadcrumbs"
+      />
+    }
+
+    <!-- BRS section 10: operational reporting (server aggregates, exportable). -->
+    <co-detail-card
+      heading="Operational report"
+      description="Late submissions, planned vs actual time, attendance, quorum, decisions, conditions."
+      icon="pi pi-chart-bar"
+    >
+      <co-action-group co-card-actions label="Operational report">
+        <button
+          co-button
+          variant="secondary"
+          size="sm"
+          [attr.aria-expanded]="showReport()"
+          (click)="toggleReport()"
+        >
+          @if (showReport()) {
+            <i class="pi pi-chevron-up" aria-hidden="true"></i> Hide report
+          } @else {
+            <i class="pi pi-chevron-down" aria-hidden="true"></i> Show report
+          }
+        </button>
+      </co-action-group>
+      @if (showReport()) {
+        <co-content-stack>
+          <co-field-grid>
+            <co-field label="From" controlId="daf-report-from" required>
+              <input
+                #fromInput
+                id="daf-report-from"
+                co-input
+                type="date"
+                name="reportFrom"
+                [value]="reportFrom()"
+                (input)="reportFrom.set(fromInput.value)"
+                [disabled]="reportLoading()"
+                [attr.aria-invalid]="!!reportRangeError()"
+              />
+            </co-field>
+            <co-field label="To" controlId="daf-report-to" required [error]="reportRangeError()">
+              <input
+                #toInput
+                id="daf-report-to"
+                co-input
+                type="date"
+                name="reportTo"
+                [value]="reportTo()"
+                (input)="reportTo.set(toInput.value)"
+                [disabled]="reportLoading()"
+                [attr.aria-invalid]="!!reportRangeError()"
+              />
+            </co-field>
+          </co-field-grid>
+          <co-action-group label="Report actions">
+            <button
+              co-button
+              variant="primary"
+              size="sm"
+              (click)="loadReport()"
+              [disabled]="reportLoading() || !!reportRangeError()"
+            >
+              <i class="pi pi-play" aria-hidden="true"></i> Run
+            </button>
+            <button
+              co-button
+              variant="secondary"
+              size="sm"
+              (click)="exportReport()"
+              [disabled]="report() === null || reportLoading() || !!reportError()"
+            >
+              <i class="pi pi-file-excel" aria-hidden="true"></i> Export Excel
+            </button>
+          </co-action-group>
+
+          @if (reportLoading()) {
+            <co-spinner label="Loading the operational report" />
+          } @else if (reportError()) {
+            <co-error-state
+              title="The operational report could not load"
+              [message]="reportError()"
+              retryable
+              (retry)="loadReport()"
+            />
+          } @else if (report(); as r) {
+            @if (reportRange(); as range) {
+              <co-section-heading
+                heading="Summary"
+                [description]="range.from + ' to ' + range.to"
+                icon="pi pi-chart-bar"
+              />
+            }
+            <!-- TODO co-ds: no key/value summary table; DAF's summary rows are shown as stat cards. -->
+            <co-field-grid>
+              <co-stat-card label="Meetings" [value]="r.meetings" />
+              <co-stat-card label="Agenda items" [value]="r.items" />
+              <co-stat-card label="Late submissions" [value]="r.lateItems" />
+              <co-stat-card label="Outstanding mandatory papers" [value]="r.outstandingMandatoryPapers" />
+              <co-stat-card
+                label="Planned / actual discussion (min)"
+                [value]="r.plannedMinutes + ' / ' + r.actualMinutes"
+              />
+              <co-stat-card
+                label="Invited / planned / attended"
+                [value]="r.invited + ' / ' + r.plannedAttending + ' / ' + r.actuallyAttended"
+              />
+              <co-stat-card
+                label="Quorum met / not met (items)"
+                [value]="r.quorumMet + ' / ' + r.quorumNotMet"
+              />
+              <co-stat-card
+                label="Open / overdue conditions"
+                [value]="r.openConditions + ' / ' + r.overdueConditions"
+              />
+            </co-field-grid>
+
+            @for (b of reportBreakdowns(); track b.id) {
+              <co-section-heading [heading]="b.title" />
+              @if (b.rows.length === 0) {
+                <co-empty-state title="None" />
+              } @else {
+                <p-table
+                  [value]="b.rows"
+                  [paginator]="b.rows.length > 10"
+                  [rows]="10"
+                  dataKey="key"
+                  [attr.aria-label]="b.title"
+                >
+                  <ng-template #header>
+                    <tr>
+                      <th scope="col">{{ b.title }}</th>
+                      <th scope="col">Count</th>
+                    </tr>
+                  </ng-template>
+                  <ng-template #body let-row>
+                    <tr>
+                      <td>{{ row.key }}</td>
+                      <td>{{ row.value }}</td>
+                    </tr>
+                  </ng-template>
+                </p-table>
+              }
+            }
+
+            <co-section-heading heading="Late submissions" />
+            @if (lateItemDetails().length === 0) {
+              <co-empty-state title="None" />
+            } @else {
+              <p-table
+                [value]="lateItemDetails()"
+                [paginator]="lateItemDetails().length > 10"
+                [rows]="10"
+                [rowsPerPageOptions]="[10, 20, 50]"
+                [showCurrentPageReport]="true"
+                currentPageReportTemplate="{first}–{last} of {totalRecords} items"
+                dataKey="agiId"
+                aria-label="Late submissions"
+              >
+                <ng-template #header>
+                  <tr>
+                    <th scope="col">Committee</th>
+                    <th scope="col">Meeting date</th>
+                    <th scope="col">Counterparty / deal</th>
+                    <th scope="col">Reason</th>
+                  </tr>
+                </ng-template>
+                <ng-template #body let-row>
+                  <tr>
+                    <td>{{ row.committeeName }} {{ row.mandateLevel || "" }}</td>
+                    <td>{{ (row.meetingDate | date: "yyyy-MM-dd") ?? "—" }}</td>
+                    <td>
+                      <button co-button variant="ghost" size="sm" (click)="openItem(row)">
+                        {{ row.counterpartyName }}
+                      </button>
+                    </td>
+                    <td>{{ row.lateSubmissionReason || "—" }}</td>
+                  </tr>
+                </ng-template>
+              </p-table>
+            }
+          } @else {
+            <co-empty-state title="No report run yet." hint="Choose a date range and select Run." />
+          }
+        </co-content-stack>
+      }
+    </co-detail-card>
+
+    <co-field-grid>
+      <co-stat-card
+        label="Meetings this week"
+        [value]="loading() || error() ? '—' : meetingsThisWeek().length"
+        [delta]="itemsThisWeek() + (itemsThisWeek() === 1 ? ' item' : ' items')"
+      />
+      <co-stat-card
+        label="Meetings next week"
+        [value]="loading() || error() ? '—' : meetingsNextWeek().length"
+        [delta]="itemsNextWeek() + (itemsNextWeek() === 1 ? ' item' : ' items')"
+      />
+      <co-stat-card
+        label="Credit papers still outstanding"
+        [value]="loading() || error() ? '—' : papersOutstanding()"
+        delta="Over the two weeks"
+      />
+      <co-stat-card
+        label="Decisions captured"
+        [value]="loading() || error() ? '—' : decisionsCaptured() + ' / ' + decisionsDue()"
+        delta="For past meetings"
+      />
+    </co-field-grid>
+
+    <co-detail-card
+      heading="Meeting schedule"
+      description="Committee meetings with their running order, per day for the next two weeks or as one list."
+      icon="pi pi-calendar"
+    >
+      <co-action-group co-card-actions label="Dashboard actions">
+        <button co-button variant="secondary" size="sm" (click)="load()" [disabled]="loading()">
+          <i class="pi pi-refresh" aria-hidden="true"></i> Refresh
+        </button>
+        <button co-button variant="secondary" size="sm" (click)="navigation.navigate('/agenda')">
+          <i class="pi pi-list" aria-hidden="true"></i> All agenda items
+        </button>
+      </co-action-group>
+      <co-content-stack>
+        <co-tabs
+          variant="underline"
+          ariaLabel="Schedule view"
+          idPrefix="daf-dashboard"
+          [tabs]="tabs"
+          [active]="view()"
+          (activeChange)="setView($event)"
+        />
+
+        @if (loading()) {
+          <co-spinner label="Loading the committee dashboard" />
+        } @else if (error()) {
+          <co-error-state
+            title="The committee dashboard could not load"
+            [message]="error()"
+            retryable
+            (retry)="load()"
+          />
+        } @else if (view() === "week") {
+          @for (g of pagedWeekGroups(); track g.week + ":" + g.day) {
+            @if (g.showWeekLabel) {
+              <co-section-heading
+                [heading]="g.week === 'this' ? 'This week' : 'Next week'"
+                icon="pi pi-calendar"
+              >
+                @if (g.showExpandAll) {
+                  <co-action-group co-heading-meta label="Running order">
+                    <button co-button variant="ghost" size="sm" (click)="toggleAll()">
+                      {{ allExpanded() ? "Collapse all" : "Expand all" }}
+                    </button>
+                  </co-action-group>
+                }
+              </co-section-heading>
+            }
+            @if (g.empty) {
+              <co-empty-state
+                [title]="
+                  g.week === 'this'
+                    ? 'No committee meetings scheduled this week.'
+                    : 'No committee meetings scheduled next week.'
+                "
+                hint="Meetings appear here once analysts book items on them."
+              />
+            } @else {
+              <co-section-heading
+                [heading]="(g.date | date: 'EEEE d MMM yyyy') ?? ''"
+                [description]="g.meetings.length + (g.meetings.length === 1 ? ' meeting' : ' meetings')"
+              />
+              @for (m of g.meetings; track m.agmId) {
+                <co-detail-card
+                  [heading]="meetingTitle(m)"
+                  [description]="meetingSummary(m)"
+                  icon="pi pi-clock"
+                  density="compact"
+                >
+                  <co-action-group co-card-actions [label]="'Actions for ' + meetingTitle(m)">
+                    <button co-button variant="ghost" size="sm" (click)="openMeeting(m)">
+                      <i class="pi pi-external-link" aria-hidden="true"></i> Open meeting
+                    </button>
+                    <button
+                      co-button
+                      variant="ghost"
+                      size="sm"
+                      [attr.aria-expanded]="isExpanded(m)"
+                      (click)="toggleMeeting(m)"
+                    >
+                      {{ isExpanded(m) ? "Hide running order" : "Show running order" }}
+                    </button>
+                  </co-action-group>
+                  @if (isExpanded(m)) {
+                    <p-table
+                      [value]="m.items"
+                      [paginator]="m.items.length > 10"
+                      [rows]="10"
+                      [rowsPerPageOptions]="[10, 20, 50]"
+                      [showCurrentPageReport]="true"
+                      currentPageReportTemplate="{first}–{last} of {totalRecords} items"
+                      dataKey="agiId"
+                      [attr.aria-label]="'Running order for ' + meetingTitle(m)"
+                    >
+                      <ng-template #header>
+                        <tr>
+                          <th scope="col">Time</th>
+                          <th scope="col">#</th>
+                          <th scope="col">Counterparty / deal</th>
+                          <th scope="col">Purpose</th>
+                          <th scope="col">Min</th>
+                          <th scope="col">Primary analyst</th>
+                          <th scope="col">Status</th>
+                        </tr>
+                      </ng-template>
+                      <ng-template #body let-row>
+                        <tr>
+                          <td>{{ itemTime(row) }}</td>
+                          <td>{{ row.agendaNumber || "—" }}</td>
+                          <td>
+                            <button co-button variant="ghost" size="sm" (click)="openItem(row)">
+                              {{ row.counterpartyName }}
+                            </button>
+                          </td>
+                          <td>{{ row.purposeOfSubmission }}</td>
+                          <td>{{ row.estimatedMinutes || "—" }}</td>
+                          <td>{{ row.primaryAnalyst || "—" }}</td>
+                          <td>
+                            <co-status [kind]="statusKind(row.itemStatus)">{{ row.itemStatus }}</co-status>
+                            @if (row.lateSubmission) {
+                              <co-status kind="blocked">Late</co-status>
+                            }
+                          </td>
+                        </tr>
+                      </ng-template>
+                    </p-table>
+                  }
+                </co-detail-card>
+              }
+            }
+          }
+          @if (weekTotalPages() > 1) {
+            <!-- TODO co-ds: no pager primitive for non-table lists; Previous/Next buttons with a page label. -->
+            <co-action-group label="Days">
+              <button
+                co-button
+                variant="secondary"
+                size="sm"
+                [disabled]="currentWeekPage() === 1"
+                (click)="setWeekPage(currentWeekPage() - 1)"
+              >
+                <i class="pi pi-chevron-left" aria-hidden="true"></i> Previous
+              </button>
+              <span aria-live="polite">Page {{ currentWeekPage() }} of {{ weekTotalPages() }}</span>
+              <button
+                co-button
+                variant="secondary"
+                size="sm"
+                [disabled]="currentWeekPage() === weekTotalPages()"
+                (click)="setWeekPage(currentWeekPage() + 1)"
+              >
+                Next <i class="pi pi-chevron-right" aria-hidden="true"></i>
+              </button>
+            </co-action-group>
+          }
+        } @else {
+          @if (allMeetings().length === 0) {
+            <co-empty-state
+              title="No committee meetings booked."
+              hint="Meetings appear here once analysts book items on them."
+            />
+          }
+          @for (m of pagedAll(); track m.agmId) {
+            <co-detail-card
+              [heading]="meetingTitle(m)"
+              [description]="((m.meetingDate | date: 'EEE d MMM yyyy') ?? '') + ' · ' + meetingSummary(m)"
+              icon="pi pi-calendar"
+              density="compact"
+            >
+              <co-action-group co-card-actions [label]="'Actions for ' + meetingTitle(m)">
+                <button co-button variant="ghost" size="sm" (click)="openMeeting(m)">
+                  <i class="pi pi-external-link" aria-hidden="true"></i> Open meeting
+                </button>
+              </co-action-group>
+              <p-table
+                [value]="m.items"
+                [paginator]="m.items.length > 10"
+                [rows]="10"
+                [rowsPerPageOptions]="[10, 20, 50]"
+                [showCurrentPageReport]="true"
+                currentPageReportTemplate="{first}–{last} of {totalRecords} items"
+                dataKey="agiId"
+                [attr.aria-label]="'Running order for ' + meetingTitle(m)"
+              >
+                <ng-template #header>
+                  <tr>
+                    <th scope="col">Time</th>
+                    <th scope="col">#</th>
+                    <th scope="col">Counterparty / deal</th>
+                    <th scope="col">Purpose</th>
+                    <th scope="col">Min</th>
+                    <th scope="col">Primary analyst</th>
+                    <th scope="col">Status</th>
+                  </tr>
+                </ng-template>
+                <ng-template #body let-row>
+                  <tr>
+                    <td>{{ itemTime(row) }}</td>
+                    <td>{{ row.agendaNumber || "—" }}</td>
+                    <td>
+                      <button co-button variant="ghost" size="sm" (click)="openItem(row)">
+                        {{ row.counterpartyName }}
+                      </button>
+                    </td>
+                    <td>{{ row.purposeOfSubmission }}</td>
+                    <td>{{ row.estimatedMinutes || "—" }}</td>
+                    <td>{{ row.primaryAnalyst || "—" }}</td>
+                    <td>
+                      <co-status [kind]="statusKind(row.itemStatus)">{{ row.itemStatus }}</co-status>
+                      @if (row.lateSubmission) {
+                        <co-status kind="blocked">Late</co-status>
+                      }
+                    </td>
+                  </tr>
+                </ng-template>
+              </p-table>
+            </co-detail-card>
+          }
+          @if (allMeetings().length > 0) {
+            <!-- TODO co-ds: no pager primitive for non-table lists; Previous/Next buttons with a range label. -->
+            <co-action-group label="Meetings">
+              <button
+                co-button
+                variant="secondary"
+                size="sm"
+                [disabled]="currentPage() === 1"
+                (click)="setPage(currentPage() - 1)"
+              >
+                <i class="pi pi-chevron-left" aria-hidden="true"></i> Previous
+              </button>
+              <span aria-live="polite">
+                Showing {{ pageStart() }}–{{ pageEnd() }} of {{ allMeetings().length }}
+                {{ allMeetings().length === 1 ? "meeting" : "meetings" }} · Page {{ currentPage() }} of
+                {{ totalPages() }}
+              </span>
+              <button
+                co-button
+                variant="secondary"
+                size="sm"
+                [disabled]="currentPage() === totalPages()"
+                (click)="setPage(currentPage() + 1)"
+              >
+                Next <i class="pi pi-chevron-right" aria-hidden="true"></i>
+              </button>
+            </co-action-group>
+          }
+        }
+      </co-content-stack>
+    </co-detail-card>
+
+    @if (!loading() && !error()) {
+      <co-section-heading
+        heading="Submission efficiency"
+        description="Across every active agenda item."
+        icon="pi pi-chart-line"
+      />
+      <!-- TODO co-ds: no ring/progress meter; the DAF donut rings are shown as stat-card percentages. -->
+      <co-field-grid>
+        <co-stat-card label="Submitted on time" [value]="onTimePct() + '%'" delta="Of agenda items" />
+        <co-stat-card
+          label="Within page guidance"
+          [value]="withinGuidancePct() + '%'"
+          delta="Of agenda items"
+        />
+      </co-field-grid>
+      @if (view() === "week") {
+        <co-action-group label="More">
+          <button co-button variant="ghost" size="sm" (click)="setView('all')">
+            View all meetings <i class="pi pi-chevron-right" aria-hidden="true"></i>
+          </button>
+        </co-action-group>
+      }
+    }
+  </co-content-stack>
+</section>

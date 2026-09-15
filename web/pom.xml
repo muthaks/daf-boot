@@ -1,0 +1,90 @@
+<?xml version="1.0"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>za.co.rmb.credit</groupId>
+  <artifactId>daf-remote</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <name>DAF - Committee Agendas remote</name>
+  <description>DAF Credit Committee Agenda Builder — Native Federation remote hosted by the Credit platform shell; backend is the existing approvalforum API through the Credit API gateway</description>
+  <packaging>pom</packaging>
+
+  <properties>
+    <!-- Node 22.22.3+ is required by the Angular 22 CLI. Must be mirrored in
+         Nexus raw-node/dist (same as co-portal/web and the platform remotes). -->
+    <node.version>v22.22.3</node.version>
+    <frontend-maven-plugin.version>1.15.0</frontend-maven-plugin.version>
+    <node.download.root>https://crsk-nexus.rmb.co.za/repository/raw-node/dist/</node.download.root>
+  </properties>
+
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-clean-plugin</artifactId>
+        <version>3.3.2</version>
+        <configuration>
+          <filesets>
+            <fileset>
+              <directory>dist</directory>
+              <includes><include>**/*</include></includes>
+            </fileset>
+            <fileset>
+              <directory>target</directory>
+              <includes><include>**/*</include></includes>
+            </fileset>
+            <fileset>
+              <directory>node_modules</directory>
+              <includes><include>**/*</include></includes>
+            </fileset>
+          </filesets>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>com.github.eirslett</groupId>
+        <artifactId>frontend-maven-plugin</artifactId>
+        <version>${frontend-maven-plugin.version}</version>
+
+        <configuration>
+          <workingDirectory>${project.basedir}</workingDirectory>
+          <installDirectory>${project.build.directory}</installDirectory>
+        </configuration>
+
+        <executions>
+          <execution>
+            <id>install-node-and-npm</id>
+            <goals>
+              <goal>install-node-and-npm</goal>
+            </goals>
+            <configuration>
+              <nodeVersion>${node.version}</nodeVersion>
+              <nodeDownloadRoot>${node.download.root}</nodeDownloadRoot>
+            </configuration>
+          </execution>
+
+          <execution>
+            <id>npm-install</id>
+            <goals>
+              <goal>npm</goal>
+            </goals>
+            <configuration>
+              <arguments>ci --legacy-peer-deps</arguments>
+            </configuration>
+          </execution>
+
+          <execution>
+            <id>npm-build</id>
+            <goals>
+              <goal>npm</goal>
+            </goals>
+            <configuration>
+              <arguments>run build</arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

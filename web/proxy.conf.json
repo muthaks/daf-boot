@@ -1,0 +1,7 @@
+{
+  "/approvalforum": {
+    "target": "http://localhost:19080/daf",
+    "secure": false,
+    "changeOrigin": true
+  }
+}

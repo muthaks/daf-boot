@@ -1,0 +1,169 @@
+<section [attr.aria-label]="title">
+  <co-content-stack>
+    @if (!hosted) {
+      <co-page-header
+        tone="surface"
+        [title]="title"
+        [description]="
+          mine ? 'Items you booked or analyse.' : 'Every item booked on a credit committee agenda.'
+        "
+        [breadcrumbs]="breadcrumbs"
+      />
+    }
+    <co-field-grid>
+      <co-stat-card
+        label="Agenda items"
+        [value]="loading() || error() ? '—' : items().length"
+        [delta]="mine ? 'Booked by or assigned to you' : 'Across all committees'"
+      />
+      <co-stat-card
+        label="Upcoming"
+        [value]="loading() || error() ? '—' : upcoming()"
+        delta="On meetings from today"
+      />
+      <co-stat-card
+        label="Papers outstanding"
+        [value]="loading() || error() ? '—' : papersOutstanding()"
+        delta="Awaiting the analyst's paper or rework"
+      />
+    </co-field-grid>
+    <co-detail-card
+      [heading]="title"
+      description="Find an item by counterparty, committee, purpose, analyst or status."
+      icon="pi pi-list"
+    >
+      <co-action-group co-card-actions label="Agenda actions">
+        <button co-button variant="secondary" size="sm" (click)="load()" [disabled]="loading()">
+          <i class="pi pi-refresh" aria-hidden="true"></i> Refresh
+        </button>
+        <button
+          co-button
+          variant="secondary"
+          size="sm"
+          (click)="navigation.navigate('/agenda/dashboard')"
+        >
+          <i class="pi pi-calendar" aria-hidden="true"></i> Dashboard
+        </button>
+        <button *dafCan="'agenda.book'" co-button size="sm" (click)="navigation.navigate('/agenda/new')">
+          <i class="pi pi-plus" aria-hidden="true"></i> Book agenda item
+        </button>
+      </co-action-group>
+      <co-content-stack>
+        <co-search-field
+          label="Search agenda items"
+          placeholder="Search by counterparty, committee, purpose, analyst or status…"
+          [value]="query()"
+          (valueChange)="applyFilter($event)"
+        />
+        <co-filter-chips
+          label="Status"
+          [items]="statusChips()"
+          [value]="status()"
+          (valueChange)="setStatus($event)"
+        />
+        @if (loading()) {
+          <co-spinner label="Loading agenda items" />
+        } @else if (error()) {
+          <co-error-state
+            title="Agenda items could not load"
+            [message]="error()"
+            retryable
+            (retry)="load()"
+          />
+        } @else {
+          <p-table
+            [value]="filtered()"
+            [scrollable]="true"
+            [paginator]="filtered().length > 15"
+            [rows]="15"
+            [rowsPerPageOptions]="[15, 30, 60]"
+            [first]="first()"
+            (onPage)="first.set($event.first)"
+            [showCurrentPageReport]="true"
+            currentPageReportTemplate="{first}–{last} of {totalRecords} items"
+            sortMode="single"
+            sortField="meetingDate"
+            [sortOrder]="1"
+            dataKey="agiId"
+            [attr.aria-label]="title"
+          >
+            <ng-template #header>
+              <tr>
+                <th scope="col" pSortableColumn="agendaNumber">#<p-sortIcon field="agendaNumber" /></th>
+                <th scope="col" pSortableColumn="committeeName">
+                  Committee <p-sortIcon field="committeeName" />
+                </th>
+                <th scope="col" pSortableColumn="meetingDate">
+                  Meeting <p-sortIcon field="meetingDate" />
+                </th>
+                <th scope="col" pSortableColumn="counterpartyName">
+                  Counterparty / deal <p-sortIcon field="counterpartyName" />
+                </th>
+                <th scope="col">Purpose</th>
+                <th scope="col">Pages</th>
+                <th scope="col">Minutes</th>
+                <th scope="col" pSortableColumn="primaryAnalyst">
+                  Primary analyst <p-sortIcon field="primaryAnalyst" />
+                </th>
+                <th scope="col" pSortableColumn="itemStatus">Status <p-sortIcon field="itemStatus" /></th>
+                <th scope="col"><span class="sr-only">Meeting</span></th>
+              </tr>
+            </ng-template>
+            <ng-template #body let-row>
+              <tr>
+                <td>{{ row.agendaNumber || "—" }}</td>
+                <td>
+                  <strong>{{ row.committeeName }}</strong>
+                  <div>{{ row.mandateLevel }}</div>
+                </td>
+                <td>{{ row.meetingDate | date: "EEE d MMM yyyy" }}</td>
+                <td>
+                  <button co-button variant="ghost" size="sm" (click)="openItem(row)">
+                    {{ row.counterpartyName }}
+                  </button>
+                </td>
+                <td>{{ row.purposeOfSubmission }}</td>
+                <td>{{ row.numberOfPages ?? "—" }}</td>
+                <td>{{ row.estimatedMinutes ?? "—" }}</td>
+                <td>{{ row.primaryAnalyst || "—" }}</td>
+                <td>
+                  <co-status [kind]="statusKind(row.itemStatus)">{{ row.itemStatus }}</co-status>
+                  @if (row.lateSubmission) {
+                    <co-status kind="blocked">Late</co-status>
+                  }
+                </td>
+                <td>
+                  <button co-button variant="secondary" size="sm" (click)="openMeeting(row, $event)">
+                    Meeting
+                  </button>
+                </td>
+              </tr>
+            </ng-template>
+            <ng-template #emptymessage>
+              <tr>
+                <td colspan="10">
+                  <co-empty-state
+                    [title]="items().length ? 'No matching agenda items' : 'No agenda items yet'"
+                    [hint]="
+                      items().length
+                        ? 'Try a different search or status.'
+                        : canBook()
+                          ? 'Book the first item with Book agenda item.'
+                          : 'Items appear here once analysts book them.'
+                    "
+                  >
+                    @if (query() || status() !== "all") {
+                      <button co-button variant="secondary" (click)="applyFilter(''); setStatus('all')">
+                        Clear filters
+                      </button>
+                    }
+                  </co-empty-state>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        }
+      </co-content-stack>
+    </co-detail-card>
+  </co-content-stack>
+</section>

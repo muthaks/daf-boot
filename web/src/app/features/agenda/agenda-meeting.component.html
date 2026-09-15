@@ -1,0 +1,831 @@
+<section [attr.aria-label]="title()">
+  <co-content-stack>
+    @if (!hosted) {
+      <co-page-header
+        tone="surface"
+        [title]="title()"
+        description="Compile, order and lock the agenda for a meeting."
+        [breadcrumbs]="breadcrumbs()"
+      />
+    }
+
+    @if (loading()) {
+      <co-spinner label="Loading the committee meeting" />
+    } @else if (error()) {
+      <co-error-state
+        title="Committee meeting could not load"
+        [message]="error()"
+        retryable
+        (retry)="load()"
+      />
+    } @else if (meeting(); as m) {
+      @if (feedbackIn("page")) {
+        @if (message()) {
+          <co-alert tone="success" dismissible (dismissed)="message.set('')">{{ message() }}</co-alert>
+        }
+        @if (actionError()) {
+          <co-alert tone="danger" dismissible (dismissed)="actionError.set('')">{{
+            actionError()
+          }}</co-alert>
+        }
+      }
+
+      <co-detail-card
+        [heading]="title()"
+        [description]="'Committee listing for ' + (m.meetingDate | date: 'EEEE, d MMMM yyyy')"
+        icon="pi pi-calendar"
+      >
+        <co-action-group co-card-actions label="Meeting actions">
+          <button co-button variant="secondary" size="sm" (click)="back()">
+            <i class="pi pi-arrow-left" aria-hidden="true"></i> Back
+          </button>
+          <button co-button variant="secondary" size="sm" (click)="toDashboard()">
+            <i class="pi pi-calendar" aria-hidden="true"></i> Dashboard
+          </button>
+          <button co-button variant="secondary" size="sm" (click)="load()" [disabled]="loading()">
+            <i class="pi pi-refresh" aria-hidden="true"></i> Refresh
+          </button>
+          <button co-button variant="secondary" size="sm" (click)="downloadAgendaPdf()">
+            <i class="pi pi-file-pdf" aria-hidden="true"></i> Agenda PDF
+          </button>
+          @if (isHeld()) {
+            <button co-button variant="secondary" size="sm" (click)="downloadMinutesPdf()">
+              <i class="pi pi-file-pdf" aria-hidden="true"></i> Minutes PDF
+            </button>
+          }
+          <button co-button variant="secondary" size="sm" (click)="exportExcel()">
+            <i class="pi pi-file-excel" aria-hidden="true"></i> Export Excel
+          </button>
+        </co-action-group>
+        <co-field-grid>
+          <co-detail-field label="Committee">{{ m.committeeName }}</co-detail-field>
+          <co-detail-field label="Mandate level">{{ m.mandateLevel || "—" }}</co-detail-field>
+          <co-detail-field label="Meeting date">{{ m.meetingDate | date: "d MMM yyyy" }}</co-detail-field>
+          <co-detail-field label="Session">
+            @if (meetingStart() && meetingEnd()) {
+              {{ meetingStart() }} – {{ meetingEnd() }}
+            } @else if (meetingStart()) {
+              {{ meetingStart() }}
+            } @else {
+              —
+            }
+          </co-detail-field>
+          <co-detail-field label="Held via">
+            {{ m.heldVia || "—" }}
+            @if (m.venue) {
+              ({{ m.venue }})
+            }
+          </co-detail-field>
+          @if (m.startTime) {
+            <co-detail-field label="Scheduled time">
+              {{ m.startTime }}
+              @if (m.endTime) {
+                - {{ m.endTime }}
+              }
+            </co-detail-field>
+          }
+          @if (m.teamsJoinUrl) {
+            <co-detail-field label="Teams meeting">
+              <!-- TODO co-ds: no external-link component; a ghost co-button anchor is the closest. -->
+              <a
+                co-button
+                variant="ghost"
+                size="sm"
+                [href]="m.teamsJoinUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <i class="pi pi-video" aria-hidden="true"></i> Join Teams meeting
+              </a>
+            </co-detail-field>
+          }
+          <co-detail-field label="Status">
+            <co-status [kind]="meetingStatusKind(m.status)">{{ m.status }}</co-status>
+          </co-detail-field>
+          <co-detail-field label="Quorum">{{ m.quorumSize }}</co-detail-field>
+          <co-detail-field label="Chairperson">{{ m.chair || "—" }}</co-detail-field>
+          <co-detail-field label="Paper cut-off">
+            {{ m.cutOffOn ? (m.cutOffOn | date: "yyyy-MM-dd HH:mm") : "—" }}
+          </co-detail-field>
+          <co-detail-field label="Locked by">
+            @if (m.lockedBy) {
+              {{ m.lockedBy }} on {{ m.lockedOn | date: "yyyy-MM-dd HH:mm" }}
+            } @else {
+              Not locked
+            }
+          </co-detail-field>
+          @if (isHeld() && m.actualStartTime) {
+            <co-detail-field label="Actual time">
+              {{ m.actualStartTime }}
+              @if (m.actualEndTime) {
+                - {{ m.actualEndTime }}
+              }
+            </co-detail-field>
+          }
+          @if (isHeld() && m.quorumAchieved !== null && m.quorumAchieved !== undefined) {
+            <co-detail-field label="Quorum achieved">
+              <co-status [kind]="m.quorumAchieved ? 'active' : 'blocked'">
+                Quorum {{ m.quorumAchieved ? "achieved" : "not achieved" }}
+              </co-status>
+            </co-detail-field>
+          }
+          @if (isClosed()) {
+            <co-detail-field label="Closed by">
+              {{ m.closedBy }} on {{ m.closedOn | date: "yyyy-MM-dd HH:mm" }}
+            </co-detail-field>
+          }
+          @if (isCancelled()) {
+            <co-detail-field label="Cancelled by">
+              <co-status kind="blocked">Cancelled</co-status>
+              {{ m.cancelledBy }}: {{ m.cancelReason }}
+              @if (m.cancelledOn) {
+                ({{ m.cancelledOn | date: "yyyy-MM-dd HH:mm" }})
+              }
+            </co-detail-field>
+          }
+        </co-field-grid>
+      </co-detail-card>
+
+      <co-field-grid>
+        <co-stat-card
+          label="Session load position"
+          [value]="bookedMinutes() + ' of ' + sessionMinutes + ' min'"
+          [delta]="
+            sessionOver()
+              ? 'Over by ' +
+                (bookedMinutes() - sessionMinutes) +
+                ' minutes - the secretary will need to approve or reschedule.'
+              : 'Total discussion time booked is within the committee session.'
+          "
+          [trend]="sessionOver() ? 'up' : 'flat'"
+        />
+        <co-stat-card
+          label="Items on the agenda"
+          [value]="activeItems().length"
+          [delta]="items().length - activeItems().length + ' removed'"
+        />
+        <co-stat-card
+          label="Scheduling clashes"
+          [value]="conflicts().length"
+          [delta]="conflicts().length ? 'Same person in overlapping slots' : 'No one is double-booked'"
+          [trend]="conflicts().length ? 'up' : 'flat'"
+        />
+      </co-field-grid>
+
+      @if (conflicts().length > 0) {
+        <co-alert tone="warning" title="Scheduling conflict">
+          The same person is booked across overlapping time slots and cannot attend both.
+          <ul>
+            @for (c of conflicts(); track c) {
+              <li>{{ c }}</li>
+            }
+          </ul>
+          @if (!isLocked() && !isHeld()) {
+            <button
+              *dafCan="'agenda.manage'"
+              co-button
+              variant="secondary"
+              size="sm"
+              (click)="autoAdjust()"
+              [disabled]="saving()"
+            >
+              <i class="pi pi-clock" aria-hidden="true"></i> Auto-adjust times
+            </button>
+          }
+        </co-alert>
+      }
+
+      @if (pendingReview() > 0 && !isHeld() && !isCancelled()) {
+        <co-alert tone="info">
+          {{ pendingReview() }} item{{ pendingReview() === 1 ? "" : "s" }} still await{{
+            pendingReview() === 1 ? "s" : ""
+          }}
+          review / approval - only approved items are compiled onto the agenda.
+        </co-alert>
+      }
+
+      <ng-container *dafCan="'agenda.manage'">
+        <co-detail-card
+          heading="Meeting management"
+          description="Compile the running order, lock the agenda once it is final, mark the meeting as held after the meeting date and close the meeting record."
+          icon="pi pi-lock"
+        >
+          @if (canRunChairActions()) {
+          <co-action-group co-card-actions label="Chair actions">
+            @if (!isHeld()) {
+              <button
+                co-button
+                size="sm"
+                (click)="compile()"
+                [disabled]="saving() || isLocked()"
+                [attr.title]="isLocked() ? 'The agenda is locked' : null"
+              >
+                <i class="pi pi-sort-numeric-down" aria-hidden="true"></i> Compile agenda
+              </button>
+            }
+            @if (!isLocked() && !isHeld()) {
+              <button
+                co-button
+                variant="danger"
+                size="sm"
+                (click)="lock()"
+                [disabled]="saving() || !isCompiled()"
+                title="Compile the agenda first"
+              >
+                <i class="pi pi-lock" aria-hidden="true"></i> Lock agenda
+              </button>
+            }
+            @if (isLocked() && !isHeld()) {
+              <button
+                co-button
+                variant="secondary"
+                size="sm"
+                (click)="reopen()"
+                [disabled]="saving()"
+              >
+                <i class="pi pi-lock-open" aria-hidden="true"></i> Re-open agenda
+              </button>
+            }
+            @if (!isHeld()) {
+              <button
+                co-button
+                size="sm"
+                (click)="openHeldDialog(heldDialog)"
+                [disabled]="saving() || !meetingDatePassed() || !isLocked()"
+                title="Available once the agenda is locked and the meeting date has passed"
+              >
+                <i class="pi pi-check-circle" aria-hidden="true"></i> Mark as held
+              </button>
+            }
+            @if (canCloseMeeting()) {
+              <button
+                co-button
+                variant="danger"
+                size="sm"
+                (click)="closeMeeting()"
+                [disabled]="saving()"
+                title="Every approved item needs a decision and chair sign-off first"
+              >
+                <i class="pi pi-check-circle" aria-hidden="true"></i> Close meeting record
+              </button>
+            }
+            @if (canCancelMeeting()) {
+              <button
+                co-button
+                variant="danger"
+                size="sm"
+                (click)="openReasonDialog(reasonDialog, 'cancel')"
+                [disabled]="saving()"
+              >
+                <i class="pi pi-times-circle" aria-hidden="true"></i> Cancel meeting
+              </button>
+            }
+          </co-action-group>
+          }
+          <co-content-stack>
+            @if (feedbackIn("management")) {
+              @if (message()) {
+                <co-alert tone="success" dismissible (dismissed)="message.set('')">{{ message() }}</co-alert>
+              }
+              @if (actionError()) {
+                <co-alert tone="danger" dismissible (dismissed)="actionError.set('')">{{
+                  actionError()
+                }}</co-alert>
+              }
+            }
+            <co-section-heading
+              heading="Committee member list"
+              description="Lists are created and maintained in the List Management app; members of the linked list are offered in the booking people pickers."
+              icon="pi pi-users"
+            />
+            @if (committee(); as committee) {
+              <co-field-grid>
+                <co-field
+                  #listField
+                  label="List Management member list"
+                  controlId="daf-meeting-list-name"
+                  hint="None - capture people one by one, or a List Management list mapped into DAF."
+                >
+                  <co-searchable-select
+                    inputId="daf-meeting-list-name"
+                    label="List Management member list"
+                    name="listName"
+                    placeholder="None - capture people one by one"
+                    [options]="listOptions()"
+                    [(ngModel)]="listNameEdit"
+                    [disabled]="savingList()"
+                    [clearable]="true"
+                    [describedBy]="listField.descriptionId"
+                  />
+                </co-field>
+              </co-field-grid>
+              <co-action-group label="Committee member list actions">
+                <button
+                  co-button
+                  variant="secondary"
+                  size="sm"
+                  (click)="saveListName()"
+                  [loading]="savingList()"
+                  [disabled]="savingList()"
+                >
+                  Save member list
+                </button>
+              </co-action-group>
+            } @else {
+              <co-empty-state
+                title="Committee record unavailable"
+                hint="The committee behind this meeting could not be found, so the member list cannot be linked here."
+              />
+            }
+          </co-content-stack>
+        </co-detail-card>
+      </ng-container>
+
+      @if (canReopenClosedMeeting() || feedbackIn("correction")) {
+        <co-detail-card
+          heading="Closed record correction"
+          description="A closed meeting record can be re-opened by the review analyst for an audited correction."
+          icon="pi pi-lock-open"
+        >
+          @if (canReopenClosedMeeting()) {
+            <co-action-group co-card-actions label="Correction actions">
+              <button
+                *dafCan="'agenda.reopenClosedMeeting'"
+                co-button
+                variant="secondary"
+                size="sm"
+                (click)="openReasonDialog(reasonDialog, 'reopenClosed')"
+                [disabled]="saving()"
+              >
+                <i class="pi pi-lock-open" aria-hidden="true"></i> Re-open closed record (audited correction)
+              </button>
+            </co-action-group>
+          }
+          <co-content-stack>
+            @if (message() && feedbackIn("correction")) {
+              <co-alert tone="success" dismissible (dismissed)="message.set('')">{{ message() }}</co-alert>
+            }
+            @if (actionError() && feedbackIn("correction")) {
+              <co-alert tone="danger" dismissible (dismissed)="actionError.set('')">{{
+                actionError()
+              }}</co-alert>
+            }
+          </co-content-stack>
+        </co-detail-card>
+      }
+
+      @if (isHeld()) {
+        <co-detail-card
+          heading="Meeting records"
+          description="Minutes, transcript, recording, agenda pack - stored references."
+          icon="pi pi-folder"
+        >
+          <co-content-stack>
+            @if (feedbackIn("records")) {
+              @if (message()) {
+                <co-alert tone="success" dismissible (dismissed)="message.set('')">{{ message() }}</co-alert>
+              }
+              @if (actionError()) {
+                <co-alert tone="danger" dismissible (dismissed)="actionError.set('')">{{
+                  actionError()
+                }}</co-alert>
+              }
+            }
+            <p-table
+              [value]="m.records ?? []"
+              [scrollable]="true"
+              dataKey="agmrId"
+              aria-label="Meeting records"
+            >
+              <ng-template #header>
+                <tr>
+                  <th scope="col">Type</th>
+                  <th scope="col">Name</th>
+                  <th scope="col">Location</th>
+                  <th scope="col">Added</th>
+                </tr>
+              </ng-template>
+              <ng-template #body let-row>
+                <tr>
+                  <td>{{ row.recordType }}</td>
+                  <td>{{ row.name }}</td>
+                  <td>
+                    @if (isLink(row.location)) {
+                      <!-- TODO co-ds: no external-link component; a ghost co-button anchor is the closest. -->
+                      <a
+                        co-button
+                        variant="ghost"
+                        size="sm"
+                        [href]="row.location"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        >{{ row.location }}</a
+                      >
+                    } @else {
+                      {{ row.location || "—" }}
+                    }
+                  </td>
+                  <td>{{ row.createdBy }} {{ row.createdOn | date: "yyyy-MM-dd" }}</td>
+                </tr>
+              </ng-template>
+              <ng-template #emptymessage>
+                <tr>
+                  <td colspan="4">
+                    <co-empty-state
+                      title="No meeting records yet"
+                      hint="References to the minutes, transcript, recording and agenda pack are listed here once added."
+                    />
+                  </td>
+                </tr>
+              </ng-template>
+            </p-table>
+            @if (canAddRecord()) {
+              <ng-container *dafCan="'agenda.manage'">
+                <co-section-heading
+                  heading="Add a record reference"
+                  description="A URL or repository reference to where the record is stored."
+                  icon="pi pi-plus"
+                />
+                <co-field-grid>
+                  <co-field #recordTypeField label="Type" controlId="daf-meeting-record-type">
+                    <co-searchable-select
+                      inputId="daf-meeting-record-type"
+                      label="Type"
+                      name="recordType"
+                      [options]="recordTypeOptions"
+                      [(ngModel)]="newRecord.recordType"
+                      [searchable]="false"
+                      [disabled]="saving()"
+                      [describedBy]="recordTypeField.descriptionId"
+                    />
+                  </co-field>
+                  <co-field #recordNameField label="Name" controlId="daf-meeting-record-name" required>
+                    <input
+                      id="daf-meeting-record-name"
+                      co-input
+                      name="recordName"
+                      placeholder="Name"
+                      maxlength="200"
+                      [(ngModel)]="newRecord.name"
+                      [disabled]="saving()"
+                      [attr.aria-describedby]="recordNameField.descriptionId"
+                      autocomplete="off"
+                    />
+                  </co-field>
+                  <co-field
+                    #recordLocationField
+                    label="Location"
+                    controlId="daf-meeting-record-location"
+                    hint="URL or repository reference"
+                    required
+                  >
+                    <input
+                      id="daf-meeting-record-location"
+                      co-input
+                      name="recordLocation"
+                      placeholder="URL or repository reference"
+                      maxlength="1000"
+                      [(ngModel)]="newRecord.location"
+                      [disabled]="saving()"
+                      [attr.aria-describedby]="recordLocationField.descriptionId"
+                      autocomplete="off"
+                    />
+                  </co-field>
+                </co-field-grid>
+                <co-action-group label="Record actions">
+                  <button
+                    co-button
+                    variant="secondary"
+                    size="sm"
+                    (click)="addRecord()"
+                    [disabled]="saving() || !newRecord.name || !newRecord.location"
+                  >
+                    Add
+                  </button>
+                </co-action-group>
+              </ng-container>
+            }
+          </co-content-stack>
+        </co-detail-card>
+      }
+
+      @if (m.actions && m.actions.length > 0) {
+        <co-detail-card
+          heading="Meeting workflow history"
+          description="Lock, held, close, cancel and re-open steps on this meeting, as audited by DAF."
+          icon="pi pi-history"
+        >
+          <p-table
+            [value]="m.actions"
+            [scrollable]="true"
+            [paginator]="m.actions.length > 10"
+            [rows]="10"
+            dataKey="agwId"
+            aria-label="Meeting workflow history"
+          >
+            <ng-template #header>
+              <tr>
+                <th scope="col">When</th>
+                <th scope="col">Action</th>
+                <th scope="col">From</th>
+                <th scope="col">To</th>
+                <th scope="col">By</th>
+                <th scope="col">Reason</th>
+              </tr>
+            </ng-template>
+            <ng-template #body let-row>
+              <tr>
+                <td>{{ row.actionOn | date: "yyyy-MM-dd HH:mm" }}</td>
+                <td>{{ row.action }}</td>
+                <td>{{ row.fromStatus }}</td>
+                <td>{{ row.toStatus }}</td>
+                <td>{{ row.actionBy }}</td>
+                <td>
+                  {{ row.comments }}
+                  @if (row.overrideFlag) {
+                    <co-status kind="risk">Override</co-status>
+                  }
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </co-detail-card>
+      }
+
+      <co-detail-card
+        heading="Running order"
+        description="Every item booked on this meeting, in agenda order. Open an item to see its paper, roster and post-meeting outcome."
+        icon="pi pi-list"
+      >
+        <co-content-stack>
+          <co-search-field
+            label="Search agenda items"
+            placeholder="Search counterparties, deals, analysts, teams, country or industry…"
+            [value]="query()"
+            (valueChange)="applyFilter($event)"
+          />
+          @if (statusOptions().length > 0) {
+            <co-checkbox-group label="Item status">
+              @for (s of statusOptions(); track s) {
+                <co-checkbox
+                  [controlId]="'daf-meeting-status-' + s"
+                  [label]="s"
+                  [checked]="!!selectedStatuses()[s]"
+                  (checkedChange)="toggleStatus(s, $event)"
+                />
+              }
+            </co-checkbox-group>
+          }
+          <co-checkbox-group label="Submission">
+            <co-checkbox
+              controlId="daf-meeting-late-only"
+              label="Late submissions only"
+              [checked]="lateOnly()"
+              (checkedChange)="setLateOnly($event)"
+            />
+          </co-checkbox-group>
+          @if (hasActiveFilters() || query()) {
+            <co-action-group label="Filter actions">
+              <button co-button variant="ghost" size="sm" (click)="clearFilters()">Clear filters</button>
+            </co-action-group>
+          }
+          <p-table
+            [value]="filtered()"
+            [scrollable]="true"
+            [paginator]="filtered().length > 10"
+            [rows]="10"
+            [rowsPerPageOptions]="[10, 25, 50]"
+            [first]="first()"
+            (onPage)="first.set($event.first)"
+            [showCurrentPageReport]="true"
+            currentPageReportTemplate="{first}–{last} of {totalRecords} items"
+            sortMode="single"
+            dataKey="agiId"
+            aria-label="Meeting running order"
+          >
+            <ng-template #header>
+              <tr>
+                <th scope="col" pSortableColumn="agendaNumber">Item <p-sortIcon field="agendaNumber" /></th>
+                <th scope="col" pSortableColumn="startTime">Start <p-sortIcon field="startTime" /></th>
+                <th scope="col">End</th>
+                <th scope="col" pSortableColumn="counterpartyName">
+                  Deal name <p-sortIcon field="counterpartyName" />
+                </th>
+                <th scope="col">Purpose</th>
+                <th scope="col">Mandate</th>
+                <th scope="col">RR</th>
+                <th scope="col">Required time</th>
+                <th scope="col">Pages</th>
+                <th scope="col">Applicant</th>
+                <th scope="col">App type</th>
+                <th scope="col">Country</th>
+                <th scope="col">Industry</th>
+                <th scope="col">Document submitted</th>
+                <th scope="col">Credit team</th>
+                <th scope="col">Business team</th>
+                <th scope="col" pSortableColumn="itemStatus">Status <p-sortIcon field="itemStatus" /></th>
+                <th scope="col">Decision</th>
+                <th scope="col">Act. pages</th>
+                <th scope="col">Act. time</th>
+                <th scope="col">Act. rating</th>
+                <th scope="col">Act. DCP</th>
+                <th scope="col">Date of CC</th>
+              </tr>
+            </ng-template>
+            <ng-template #body let-row>
+              <tr>
+                <td>{{ row.agendaNumber || "—" }}</td>
+                <td>{{ row.startTime || "—" }}</td>
+                <td>{{ row.endTime || "—" }}</td>
+                <td>
+                  <button co-button variant="ghost" size="sm" (click)="openItem(row)">
+                    {{ row.counterpartyName }}
+                  </button>
+                </td>
+                <td>{{ row.purposeOfSubmission }}</td>
+                <td>{{ row.mandateLevel }}</td>
+                <td>{{ row.roundRobin ? "Y" : "N" }}</td>
+                <td>{{ row.estimatedMinutes ?? 0 }} min</td>
+                <td>{{ row.numberOfPages ?? "—" }}</td>
+                <td>{{ row.applicantRelationship || "—" }}</td>
+                <td>{{ row.applicationType || "—" }}</td>
+                <td>{{ row.countryOfRisk || "—" }}</td>
+                <td>{{ row.industryClassification || "—" }}</td>
+                <td>{{ row.itemStatus === "Confirmed" ? "Y" : "N" }}</td>
+                <td>{{ row.creditTeam || "—" }}</td>
+                <td>{{ row.businessTeam || "—" }}</td>
+                <td>
+                  <co-status [kind]="itemStatusKind(row.itemStatus)">{{ row.itemStatus }}</co-status>
+                  @if (row.lateSubmission) {
+                    <co-status kind="blocked">Late</co-status>
+                  }
+                </td>
+                <td>{{ row.postMeeting?.decision || "—" }}</td>
+                <td>{{ row.postMeeting?.actualPages ?? "—" }}</td>
+                <td>{{ row.postMeeting?.actualMinutes ?? "—" }}</td>
+                <td>{{ row.postMeeting?.actualRating || "—" }}</td>
+                <td>{{ row.postMeeting?.actualDcp ?? "—" }}</td>
+                <td>{{ row.postMeeting?.dateOfCc ? (row.postMeeting.dateOfCc | date: "yyyy-MM-dd") : "—" }}</td>
+              </tr>
+            </ng-template>
+            <ng-template #emptymessage>
+              <tr>
+                <td colspan="23">
+                  <co-empty-state
+                    [title]="items().length ? 'No matching agenda items' : 'No items booked for this meeting'"
+                    [hint]="
+                      items().length
+                        ? 'Try a different search or clear the status filters.'
+                        : 'Items appear here once analysts book them on this meeting.'
+                    "
+                  >
+                    @if (hasActiveFilters() || query()) {
+                      <button co-button variant="secondary" (click)="clearFilters()">Clear filters</button>
+                    }
+                  </co-empty-state>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </co-content-stack>
+      </co-detail-card>
+    }
+  </co-content-stack>
+</section>
+
+<ng-template #heldDialog>
+  <co-dialog-layout
+    heading="Mark meeting as held"
+    titleId="daf-meeting-held-title"
+    description="Capture the actual start and end times (BR-016). Leave a time blank if it was not recorded."
+  >
+    <form id="daf-meeting-held-form" (ngSubmit)="markHeld()" novalidate>
+      <co-content-stack>
+        @if (dialogError()) {
+          <co-alert tone="danger">{{ dialogError() }}</co-alert>
+        }
+        <co-field-grid>
+          <co-field
+            #heldStartField
+            label="Actual start time"
+            controlId="daf-meeting-held-start"
+            hint="24-hour HH:mm, or leave blank"
+            optional
+            [error]="heldStartError"
+          >
+            <input
+              id="daf-meeting-held-start"
+              co-input
+              type="time"
+              name="actualStartTime"
+              [(ngModel)]="heldStart"
+              [disabled]="dialogPending()"
+              [attr.aria-invalid]="!!heldStartError"
+              [attr.aria-describedby]="heldStartField.descriptionId"
+            />
+          </co-field>
+          <co-field
+            #heldEndField
+            label="Actual end time"
+            controlId="daf-meeting-held-end"
+            hint="24-hour HH:mm, or leave blank"
+            optional
+            [error]="heldEndError"
+          >
+            <input
+              id="daf-meeting-held-end"
+              co-input
+              type="time"
+              name="actualEndTime"
+              [(ngModel)]="heldEnd"
+              [disabled]="dialogPending()"
+              [attr.aria-invalid]="!!heldEndError"
+              [attr.aria-describedby]="heldEndField.descriptionId"
+            />
+          </co-field>
+          <co-field
+            #heldQuorumField
+            label="Quorum achieved"
+            controlId="daf-meeting-held-quorum"
+            hint="Unknown lets DAF derive quorum from the recorded attendance."
+          >
+            <co-searchable-select
+              inputId="daf-meeting-held-quorum"
+              label="Quorum achieved"
+              name="quorumAchieved"
+              [options]="quorumOptions"
+              [(ngModel)]="heldQuorum"
+              [searchable]="false"
+              [disabled]="dialogPending()"
+              [describedBy]="heldQuorumField.descriptionId"
+            />
+          </co-field>
+        </co-field-grid>
+      </co-content-stack>
+    </form>
+    <button co-button co-dialog-actions variant="ghost" (click)="closeDialog()" [disabled]="dialogPending()">
+      Cancel
+    </button>
+    <button
+      co-button
+      co-dialog-actions
+      type="submit"
+      form="daf-meeting-held-form"
+      [loading]="dialogPending()"
+    >
+      Mark as held
+    </button>
+  </co-dialog-layout>
+</ng-template>
+
+<ng-template #reasonDialog>
+  <co-dialog-layout
+    [heading]="reasonCopy().heading"
+    titleId="daf-meeting-reason-title"
+    [description]="reasonCopy().description"
+  >
+    <form id="daf-meeting-reason-form" (ngSubmit)="submitReason()" novalidate>
+      <co-content-stack>
+        @if (reasonMode() === "cancel") {
+          <co-alert tone="warning">The attendees are notified that the meeting is cancelled.</co-alert>
+        } @else {
+          <co-alert tone="warning">The re-open is audited with this correction reason.</co-alert>
+        }
+        <co-field
+          #reasonField
+          [label]="reasonCopy().label"
+          controlId="daf-meeting-reason"
+          [hint]="reasonCopy().hint"
+          required
+          [error]="reasonError"
+        >
+          <textarea
+            id="daf-meeting-reason"
+            co-input
+            name="reason"
+            rows="4"
+            required
+            maxlength="1000"
+            [(ngModel)]="reasonText"
+            [disabled]="dialogPending()"
+            [attr.aria-invalid]="!!reasonError"
+            [attr.aria-describedby]="reasonField.descriptionId"
+          ></textarea>
+        </co-field>
+      </co-content-stack>
+    </form>
+    <button co-button co-dialog-actions variant="ghost" (click)="closeDialog()" [disabled]="dialogPending()">
+      Close
+    </button>
+    <button
+      co-button
+      co-dialog-actions
+      variant="danger"
+      type="submit"
+      form="daf-meeting-reason-form"
+      [loading]="dialogPending()"
+    >
+      {{ reasonCopy().submit }}
+    </button>
+  </co-dialog-layout>
+</ng-template>

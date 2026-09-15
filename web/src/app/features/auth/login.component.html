@@ -1,0 +1,18 @@
+<co-login-page
+  productName="Committee Agendas"
+  storyTitle="Credit Origination"
+  storyDescription="CREDIT COMMITTEE AGENDA BUILDER"
+  description="Sign in with your RMB network credentials"
+  supportText="Signed in by DAF's authentication servers"
+  homeHref="/login"
+  brandAriaLabel="Committee Agendas sign in"
+  [username]="username()"
+  [password]="password()"
+  [error]="error()"
+  [loading]="loading()"
+  [alternativeLoading]="ssoLoading()"
+  (usernameChange)="username.set($event)"
+  (passwordChange)="password.set($event)"
+  (signIn)="login()"
+  (alternativeAction)="loginWithSso()"
+/>

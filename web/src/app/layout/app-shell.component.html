@@ -1,0 +1,17 @@
+<co-app-shell
+  productName="Committee Agendas"
+  homeHref="/home"
+  brandAriaLabel="Committee Agendas home"
+  appearance="platform"
+  [topNavigation]="navigation()"
+  [activeItem]="activeItem()"
+  [contained]="false"
+  [userName]="auth.displayName()"
+  [userDetail]="userDetail()"
+  signOutLabel="Sign out"
+  (itemSelect)="navigate($event)"
+  (userAction)="userAction($event)"
+>
+  <router-outlet />
+  <co-platform-footer co-app-footer productName="Committee Agendas" />
+</co-app-shell>
