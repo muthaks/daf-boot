@@ -1,0 +1,35 @@
+{
+  "windowsAuthDetail": {
+    "userPrincipalName": "superuser@rmb.co.za",
+    "hostDomain": "rmb.co.za",
+    "domain": "RMB",
+    "name": "superuser",
+    "displayName": "Super User",
+    "givenName": "Super",
+    "surname": "User",
+    "emailAddress": "superuser@rmb.co.za",
+    "groups": [
+      "G_DAF_DEV_CreditAnalyst",
+      "G_DAF_DEV_ReviewAnalyst",
+      "G_DAF_DEV_Approver",
+      "G_DAF_DEV_Chairperson",
+      "G_DAF_DEV_Secretary"
+    ]
+  },
+  "values": {
+    "agcId": 11,
+    "agmId": 1,
+    "agiId": 1,
+    "agidId": 20,
+    "workflowId": 79,
+    "inkombaId": "CD00007",
+    "prospect": "false",
+    "tenantId": 1,
+    "userName": "superuser@rmb.co.za",
+    "search": "a",
+    "exact": false,
+    "statuses": "Approved",
+    "start": 0,
+    "size": 20
+  }
+}

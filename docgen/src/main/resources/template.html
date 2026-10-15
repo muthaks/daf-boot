@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" type="text/css" media="all" href="style.css" />
+</head>
+
+<body>
+    <div class='header' th:include="header::header"></div>
+
+    <div class='footer' th:include="footer::footer"></div>
+
+    <div id="content">
+
+            <p style="text-align: center;">
+                    <span style="font-size: 12px; font-weight: bold; font-family: 'Calibri';">DIGITAL APPROVAL FORUM</span>
+                </p>
+            
+                <p style="text-align: center;">
+                    <span style="font-size: 12px; font-weight: bold;">APPROVAL REPORT</span>
+                </p>
+            
+                <table style="-fs-table-paginate: paginate; border-spacing: 0px;">
+                    <tr>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>POLICY APPROVAL MANDATE</b>
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;">[[${model.getMeetingName()}]]
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>FINAL CREDIT DECISION</b></td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;">[[${model.getOverallRulesEngineResultCreditDecision()}]]
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>KYC STATUS</b></td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;">[[${model.getKycStatus()}]]
+                        </td>
+                    </tr>
+                    <tr th:if="${model.getOverallRulesEngineResultCreditDecision() != null && model.getOverallRulesEngineResultCreditDecision().trim().equals('ESCALATED')}">
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>ESCALATED TO</b></td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;">[[${model.getRecommendedMandate()}]]
+                        </td>
+                    </tr>
+                </table>
+            
+                <br />
+            
+                <table style="-fs-table-paginate: paginate; border-spacing: 0px;">
+                    <thead style="background: black; color: white; text-align: center;">
+                        <tr>
+                            <th>DISCLAIMER</th>
+                        </tr>
+                    </thead>
+                    <tr>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; font-style: italic;">
+                            Information in CASDM and Digital Approval Forum is confidential and may not be shared outside of the Bank. 
+                            In addition, Credit Applications may also contain material non-public information. 
+                            It is a criminal offence to share material non-public information unless this is necessary for the proper performance of your employment. 
+                            It is a criminal offence to trade when in possession of material non-public information. 
+                            If material non-public information needs to be shared with the trader then you must request the FirstRand Control Room to wall cross the trader prior to sharing any information.
+                        </td>
+                    </tr>
+                </table>
+            
+                <br/>
+            
+                <p>Purpose of submission: <b>[[${model.getProposalTypeAndAction()}]]</b>, for the counterparty and scope as indicated below:</p>
+            
+                <table style="-fs-table-paginate: paginate; border-spacing: 0px;">
+                    <thead style="background: black; color: white; text-align: center;">
+                        <tr>
+                            <th colspan="4">APPLICATION SUMMARY</th>
+                        </tr>
+                    </thead>
+                    <tr>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>Counterparty</b>
+                        </td>
+                        <td colspan="3" style="border-style: solid; border-width: 0.1px; border-color: black;">[[${model.getCounterparty()}]]
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>Policy Approval Mandate</b>
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;">[[${model.getMeetingName()}]]
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>Application Number</b></td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;">[[${model.getWorkflowId()}]]</td>
+                    </tr>
+                    <tr>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>Wholesale Credit Portfolio</b></td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;">[[${model.getWholesaleCreditPortfolio()}]]
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>CASDM Credit Analyst</b></td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;">[[${model.getCasdmCreditAnalyst()}]]
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>Distressed Status</b>
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;">
+                            [[${model.getDistressedStatus()}]]</td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>CASDM CA Submission Date</b></td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;">[[${model.getCasdmCaSubmittedDate()}]]
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>Confidential Application?</b></td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;">[[${model.getConfidentialStatus()}]]
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>CASDM Review Analyst</b>
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;">
+                            [[${model.getCasdmReviewAnalyst()}]]</td>
+                    </tr>
+                    <tr>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>DAF Submitted By</b></td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;">[[${model.getSubmittedBy()}]]
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>CASDM RA Approval Date</b></td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;">[[${model.getCasdmRaSubmittedDate()}]]
+                        </td>                        
+                    </tr>
+                    <tr>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>DAF Submission Date</b></td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;">
+                            [[${model.getSubmittedDate()}]]</td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"></td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"></td>
+                    </tr>
+                </table>
+            
+                <br />
+            
+                <table style="-fs-table-paginate: paginate; border-spacing: 0px;">
+                    <thead style="text-align: center;">
+                        <tr style="background: black; color: white">
+                            <th colspan="3">RATINGS</th>
+                        </tr>
+                        <tr>
+                            <th style="border-style: solid; border-width: 0.1px; border-color: black;"></th>
+                            <th style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;"><b>Current FR Rating</b></th>
+                            <th style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;"><b>Proposed FR Rating</b>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tr>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>Final Rating</b></td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">[[${model.getCurrentFrRating()}]]
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">
+                            [[${model.getProposedFrRating()}]]</td>
+                    </tr>
+                </table>
+            
+                <br />
+            
+                <table style="-fs-table-paginate: paginate; border-spacing: 0px;">
+                    <thead>
+                        <tr style="background: black; color: white; text-align: center;">
+                            <th colspan="4">LIMIT REQUEST SUMMARY</th>
+                        </tr>
+                        <tr>
+                            <th style="border-style: solid; border-width: 0.1px; border-color: black;"></th>
+                            <th style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;"><b>Last Approved ZAR '000</b>
+                            </th>
+                            <th style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;"><b>Proposed ZAR '000</b></th>
+                            <th style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;"><b>Movement ZAR '000</b></th>
+                        </tr>
+                    </thead>
+                    <tr>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>Total DCP</b></td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">[[${model.getApprovedDcpZar()}]]
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">[[${model.getProposedDcpZar()}]]
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">[[${model.getMovementDcpZar()}]]
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>Settlement Facilities</b></td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">[[${model.getApprovedSettZar()}]]
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">[[${model.getProposedSettZar()}]]
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">[[${model.getMovementSettZar()}]]
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>Underwriting &amp; Credit Imposed Sell Down Facilities</b></td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">[[${model.getApprovedUnderwritingZar()}]]
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">[[${model.getProposedUnderwritingZar()}]]
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">[[${model.getMovementUnderwritingZar()}]]
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>Churn Facilities</b></td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">[[${model.getApprovedChurnZar()}]]
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">[[${model.getProposedChurnZar()}]]
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">[[${model.getMovementChurnZar()}]]
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>Credit Fund Facilities</b></td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">[[${model.getApprovedCreditFundZar()}]]
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">[[${model.getProposedCreditFundZar()}]]
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">[[${model.getMovementCreditFundZar()}]]
+                        </td>
+                    </tr> 
+                    <tr>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;"><b>Traded Credit Facilities</b></td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">[[${model.getApprovedTradedCreditZar()}]]
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">[[${model.getProposedTradedCreditZar()}]]
+                        </td>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">[[${model.getMovementTradedCreditZar()}]]
+                        </td>
+                    </tr>                
+                </table>
+            
+                <br />
+            
+                <table th:if="${model.getRecommendation() != null && !model.getRecommendation().trim().equals('')}" style="-fs-table-paginate: paginate; border-spacing: 0px;">
+                    <thead style="background: black; color: white; text-align: center;">
+                        <tr>
+                            <th>ANALYST ADDITIONAL COMMENTARY</th>
+                        </tr>
+                    </thead>
+                    <tr>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;">[[${model.getRecommendation()}]]
+                        </td>
+                    </tr>
+                </table>
+            
+                <p>In terms of the <b>[[${model.getMeetingName()}]]</b> requirements, the view and approval of the application
+                    requires the quorum of <b>[[${model.getApprovalQuorumNumber()}]]</b> approvers.</p>
+            
+                <p th:if="${model.getSpecificApproversCheckbox().equalsIgnoreCase('YES')}">
+                    This request has been sent to specific Approvers from the Mandate Approval Lists for the below mentioned reason:
+                </p>
+                <table th:if="${model.getSpecificApproversCheckbox().equalsIgnoreCase('YES')}" style="-fs-table-paginate: paginate; border-spacing: 0px;">
+                    <thead style="background: black; color: white; text-align: center;">
+                        <tr>
+                            <th>SPECIFIC APPROVERS REASON</th>
+                        </tr>
+                    </thead>
+                    <tr>
+                        <td style="border-style: solid; border-width: 0.1px; border-color: black;" th:utext="${model.getSpecificApproversReason()}"></td>
+                    </tr>
+                </table>
+            
+                <p>
+                    The abovementioned counterparty has been <b>[[${model.getOverallRulesEngineResultCreditDecision()}]]</b> based on the
+                    below commentary.
+                </p>
+                <table style="-fs-table-paginate: paginate; border-spacing: 0px;">
+                    <thead>
+                        <tr style="background: black; color: white; text-align: center;">
+                            <th colspan="5">APPROVAL TRACK RECORD</th>
+                        </tr>
+                        <tr>
+                            <th style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">Policy Approval Mandate</th>
+                            <th style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">Approver Name</th>
+                            <th style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">Approver Decision</th>
+                            <th style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">Approval Date</th>
+                            <th style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">Comment/Conditions of Approval</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="approval: ${model.getApprovals()}">
+                            <td style="border-style: solid; border-width: 0.1px; border-color: black;"
+                                th:text="${approval.getApprovalMandate()}">Policy Approval Mandate</td>
+                            <td style="border-style: solid; border-width: 0.1px; border-color: black;"
+                                th:text="${approval.getApproverName()}">Approver Name</td>
+                            <td style="border-style: solid; border-width: 0.1px; border-color: black;"
+                                th:text="${approval.getApproverDecision()}">Approver Decision</td>
+                            <td style="border-style: solid; border-width: 0.1px; border-color: black;"
+                                th:text="${approval.getDecisionDate()}">Approval Date</td>
+                            <td style="border-style: solid; border-width: 0.1px; border-color: black;"
+                                th:utext="${approval.getConditionsOfApproval()}">Approver Comment</td>
+                        </tr>
+                    </tbody>
+                </table>
+            
+                <br/>
+            
+                <table th:if="${model.getChatHistory().size() > 0}" style="-fs-table-paginate: paginate; border-spacing: 0px;">
+                    <thead style="display:table-header-group;">
+                        <tr style="background: black; color: white; text-align: center;">
+                            <th colspan="3">DAF CHAT HISTORY</th>
+                        </tr>
+                        <tr>
+                            <th style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center; width: 18%;">Date</th>
+                            <th style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center;">Name</th>
+                            <th style="border-style: solid; border-width: 0.1px; border-color: black; text-align: center; width: 60%;">Comment</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="chat: ${model.getChatHistory()}">
+                            <td style="border-style: solid; border-width: 0.1px; border-color: black;"
+                                th:text="${chat.getDate()}">Chat Date</td>
+                            <td style="border-style: solid; border-width: 0.1px; border-color: black;"
+                                th:text="${chat.getName()}">Chat Name</td>
+                            <td style="border-style: solid; border-width: 0.1px; border-color: black;"
+                                th:utext="${chat.getComment()}">Chat Comment</td>
+                        </tr>
+                    </tbody>
+                </table>
+    </div>
+
+    
+
+    
+</body>
+
+</html>

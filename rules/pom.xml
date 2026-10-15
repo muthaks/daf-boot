@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.0.3</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>za.co.rmb.credit</groupId>
+    <artifactId>daf-rules</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <name>DAF Rules</name>
+    <description>DAF approval rules service: the legacy approvalforumdrools JAX-RS application on Java 25, Spring Boot 4, Jersey 4 and Drools 10</description>
+
+    <properties>
+        <java.version>25</java.version>
+        <legacy-libs.version>1.0.0-SNAPSHOT</legacy-libs.version>
+        <!-- Drools 10 (Apache KIE): JDK 17+, supports the Drools 7 API and DRL syntax -->
+        <drools.version>10.2.0</drools.version>
+        <jjwt.version>0.11.5</jjwt.version>
+        <swagger-annotations.version>1.5.20</swagger-annotations.version>
+        <guava.version>33.4.0-jre</guava.version>
+        <lombok.version>1.18.44</lombok.version>
+    </properties>
+
+    <!-- Internal Nexus repositories - no external internet access on the build agents -->
+    <repositories>
+        <repository>
+            <id>rmb-nexus</id>
+            <name>RMB Nexus Repository</name>
+            <url>https://crsk-nexus.rmb.co.za/repository/maven-public/</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>true</enabled></snapshots>
+        </repository>
+    </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>rmb-nexus-plugins</id>
+            <name>RMB Nexus Plugin Repository</name>
+            <url>https://crsk-nexus.rmb.co.za/repository/maven-public/</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>true</enabled></snapshots>
+        </pluginRepository>
+    </pluginRepositories>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.drools</groupId>
+                <artifactId>drools-bom</artifactId>
+                <version>${drools.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jersey</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-jakarta-xmlbind-annotations</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.xml.bind</groupId>
+            <artifactId>jakarta.xml.bind-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <!-- Legacy Hibernate 5 / RESTEasy / Guice behaviour shared with daf-api -->
+        <dependency>
+            <groupId>za.co.rmb.credit</groupId>
+            <artifactId>daf-support</artifactId>
+            <version>${legacy-libs.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.microsoft.sqlserver</groupId>
+            <artifactId>mssql-jdbc</artifactId>
+        </dependency>
+
+        <!-- Rules engine. The legacy engine builds the DRL with KieBuilder.buildAll(), the classic (non-executable
+             model) build, as on Drools 7; since Drools 8 its Java and MVEL dialects are in drools-mvel (deprecated in
+             favour of the executable model, which would need a code change). RulesGoldenTest proves the answers. -->
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-engine</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-mvel</artifactId>
+        </dependency>
+
+        <!-- Request/response model of the rules REST API (shared with daf-api), jakarta-rewritten -->
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>approvalforumrules-model</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>jaxb2-basics-runtime</classifier></dependency>
+
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>${jjwt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.swagger</groupId>
+            <artifactId>swagger-annotations</artifactId>
+            <version>${swagger-annotations.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.16.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>${guava.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>daf-rules</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                    <parameters>true</parameters>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

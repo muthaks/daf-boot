@@ -1,6 +1,6 @@
 # Migrating the DAF Agenda Builder to the platform
 
-Source: `reviewmandates` branch `feature/CASDM-1352`, `approvalforum-ui/src/app/core/agenda/` (Angular 8, ng-bootstrap, 2,600 lines of custom SCSS). Target: this repository, Angular 22 remote on `co-ds`, no custom CSS.
+Source: `reviewmandates` `approvalforum-ui/src/app/core/agenda/` (Angular 8, ng-bootstrap, 2,600 lines of custom SCSS). Target: this repository, Angular 22 remote on `co-ds`, no custom CSS.
 
 ## What moved
 

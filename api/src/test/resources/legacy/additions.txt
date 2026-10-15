@@ -1,0 +1,5 @@
+# Endpoints daf-api serves beyond the legacy approvalforum-web application.
+# Credit Data reference data for the Agenda Builder's classification fields.
+GET /approvalForum/creditdata/countries
+GET /approvalForum/creditdata/industries
+GET /approvalForum/creditdata/counterparty/classification

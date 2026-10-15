@@ -1,0 +1,39 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:tns="http://credit.rmb.co.za/approvalforum/external"
+	targetNamespace="http://credit.rmb.co.za/approvalforum/external" elementFormDefault="qualified">
+
+    <xs:element name="createExternalRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="applicationId" type="xs:int"/>
+                <xs:element name="tenantId" type="xs:int" minOccurs="0"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="createExternalResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="success" type="xs:boolean"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="cancelExternalRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="applicationId" type="xs:int"/>
+                <xs:element name="tenantId" type="xs:int" minOccurs="0"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="cancelExternalResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="success" type="xs:boolean"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+</xs:schema>
+

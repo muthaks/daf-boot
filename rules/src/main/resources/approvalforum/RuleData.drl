@@ -1,0 +1,1946 @@
+// Version: 17.1
+// Comment: Broader Africa; 2025/09 - Kamva 2.0
+
+package za.co.rmb.approvalforumdrools;
+
+import za.co.rmb.approvalforumdrools.rules.approvalforum.data.ApprovalForumData;
+import za.co.rmb.approvalforumdrools.rules.approvalforum.data.ApprovalForumMetadata;
+
+import function za.co.rmb.approvalforumdrools.engine.ApprovalForumDroolsEngineUtil.displayRuleTriggered;
+
+dialect "java"
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Corporate Mandates
+// ---------------------------------------------------------------------------------------------------------------------
+
+rule "MeetingTypeReviewMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("REVIEW_MANDATE".equals(meetingRule))
+    then
+        displayRuleTriggered(drools);
+        drools.setFocus("CounterpartyTypeCorporateMeetingTypeReviewMandateRG");
+end
+
+    rule "CorporateReviewMandateNotWatchList"
+    agenda-group "CounterpartyTypeCorporateMeetingTypeReviewMandateRG"
+    activation-group "CounterpartyTypeCorporateMeetingTypeReviewMandateAG"
+    salience 9999
+        when
+            $data: ApprovalForumData(!ApprovalForumMetadata.DISTRESS_STATUS_WATCHLIST.equals(distressStatus))
+        then
+            $data.setTotalNumberOfApprovalsRequired(3);
+            $data.addListModel("Corporates - Review Mandate Category A Approval List", 2, 0, 1); //min max rank
+            $data.addListModel("Corporates - Review Mandate Category B Approval List", 0, 1, 2); //min max rank
+            $data.setRuleExecuted(true);
+            displayRuleTriggered(drools);
+    end
+
+    rule "CorporateReviewMandateWatchList"
+    agenda-group "CounterpartyTypeCorporateMeetingTypeReviewMandateRG"
+    activation-group "CounterpartyTypeCorporateMeetingTypeReviewMandateAG"
+    salience 9999
+        when
+            $data: ApprovalForumData(ApprovalForumMetadata.DISTRESS_STATUS_WATCHLIST.equals(distressStatus))
+        then
+            $data.setTotalNumberOfApprovalsRequired(4);
+            $data.addListModel("Watchlist Approval List", 1, 1, 1); //min max rank
+            $data.addListModel("Corporates - Review Mandate Category A Approval List", 2, 0, 2); //min max rank
+            $data.addListModel("Corporates - Review Mandate Category B Approval List", 0, 1, 3); //min max rank
+            $data.setRuleExecuted(true);
+            displayRuleTriggered(drools);
+    end
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+rule "MeetingTypeDelMandateCatA"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DELEGATED_MANDATE_CATEGORY_A".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(2);
+        $data.addListModel("Corporates - Delegated Mandate Category A Approval List", 1, 0, 1); //min max rank
+        $data.addListModel("Corporates - Delegated Mandate Category B Approval List", 0, 1, 2); //min max rank
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+rule "MeetingTypeDelMandateCatATeamLead"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DELEGATED_MANDATE_CATEGORY_A_TEAM_LEAD".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModel("Corporates - Delegated Mandate Category B Approval List", 1, 1, 1); //min max rank
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+rule "MeetingTypeReviewMandateReib"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("REVIEW_MANDATE_REIB".equals(meetingRule))
+    then
+        displayRuleTriggered(drools);
+        drools.setFocus("CounterpartyTypeCorporateMeetingTypeReviewMandateReibRG");
+end
+
+    rule "CorporateReviewMandateReibNotWatchList"
+    agenda-group "CounterpartyTypeCorporateMeetingTypeReviewMandateReibRG"
+    activation-group "CounterpartyTypeCorporateMeetingTypeReviewMandateReibAG"
+    salience 9999
+        when
+            $data: ApprovalForumData(!ApprovalForumMetadata.DISTRESS_STATUS_WATCHLIST.equals(distressStatus))
+        then
+            $data.setTotalNumberOfApprovalsRequired(3);
+            $data.addListModel("REIB Mandatory Approval List", 1, 1, 1); //min max rank
+            $data.addListModel("Corporates - Review Mandate REIB Category A Approval List", 1, 1, 2); //min max rank
+            $data.addListModel("Corporates - Review Mandate REIB Category B Approval List", 1, 1, 3); //min max rank
+            $data.setRuleExecuted(true);
+            displayRuleTriggered(drools);
+    end
+
+    rule "CorporateReviewMandateReibWatchList"
+    agenda-group "CounterpartyTypeCorporateMeetingTypeReviewMandateReibRG"
+    activation-group "CounterpartyTypeCorporateMeetingTypeReviewMandateReibAG"
+    salience 9999
+        when
+            $data: ApprovalForumData(ApprovalForumMetadata.DISTRESS_STATUS_WATCHLIST.equals(distressStatus))
+        then
+            $data.setTotalNumberOfApprovalsRequired(4);
+            $data.addListModel("Watchlist Approval List", 1, 1, 1); //min max rank
+            $data.addListModel("REIB Mandatory Approval List", 1, 1, 2); //min max rank
+            $data.addListModel("Corporates - Review Mandate REIB Category A Approval List", 1, 1, 3); //min max rank
+            $data.addListModel("Corporates - Review Mandate REIB Category B Approval List", 1, 1, 4); //min max rank
+            $data.setRuleExecuted(true);
+            displayRuleTriggered(drools);
+    end
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+rule "MeetingTypeDelMandateReibCatA"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DELEGATED_MANDATE_REIB_CATEGORY_A".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(2);
+        $data.addListModel("REIB Mandatory Approval List", 1, 1, 1); //min max rank
+        $data.addListModel("Corporates - Delegated Mandate REIB Approval List", 1, 1, 2); //min max rank
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+rule "MeetingTypeDelMandateReibCatB"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DELEGATED_MANDATE_REIB_CATEGORY_B".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModel("REIB Mandatory Approval List", 0, 1, 1); //min max rank
+        $data.addListModel("Corporates - Review Mandate REIB Category B Approval List", 0, 1, 2); //min max rank
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+// ---------------------------------------------------------------------------------------------------------------------
+rule "MeetingTypeDelMandateReibTeamLead"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DELEGATED_MANDATE_REIB_TEAM_LEAD".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModel("Corporates - Review Mandate REIB Category B Approval List", 1, 1, 1); //min max rank
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+rule "MeetingTypeDelMandateCatB"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DELEGATED_MANDATE_CATEGORY_B".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModel("Corporates - Delegated Mandate Category B Approval List", 1, 1, 1); //min max rank
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Financial Institutions Mandates
+// ---------------------------------------------------------------------------------------------------------------------
+
+//Financial Institutions Review Mandate
+//Financial Institutions and Country Delegated Round Robin Approval
+rule "MeetingTypeFinancialInstitutionReviewMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("FINANCIAL_INSTITUTIONS_REVIEW_MANDATE".equals(meetingRule))
+    then
+        displayRuleTriggered(drools);
+        drools.setFocus("MeetingTypeFinancialInstitutionReviewMandateRG");
+end
+
+    rule "MeetingTypeFinancialInstitutionReviewMandateBank"
+    agenda-group "MeetingTypeFinancialInstitutionReviewMandateRG"
+    activation-group "MeetingTypeFinancialInstitutionReviewMandateAG"
+    salience 9999
+        when
+            $data: ApprovalForumData(bank)
+        then
+            displayRuleTriggered(drools);
+            drools.setFocus("MeetingTypeFinancialInstitutionReviewMandateBankRG");
+    end
+
+    rule "MeetingTypeFinancialInstitutionReviewMandateNotBank"
+    agenda-group "MeetingTypeFinancialInstitutionReviewMandateRG"
+    activation-group "MeetingTypeFinancialInstitutionReviewMandateAG"
+    salience 9999
+        when
+            $data: ApprovalForumData(!bank)
+        then
+            displayRuleTriggered(drools);
+            drools.setFocus("WatchlistRG");
+            drools.setFocus("LocalInternationalRG");
+            drools.setFocus("MeetingTypeFinancialInstitutionReviewMandateFinRG");
+    end
+
+        /* CA-2088 These were the new rules, but it was decided this needs to be replaced with the old rules
+        rule "MeetingTypeFinancialInstitutionReviewMandateBankOnly"
+        agenda-group "MeetingTypeFinancialInstitutionReviewMandateBankRG"
+        activation-group "MeetingTypeFinancialInstitutionReviewMandateBankAG"
+        salience 9999
+            when
+                $data: ApprovalForumData()
+            then
+                $data.addTotalNumberOfApprovalsRequired(4);
+                $data.addListModelNextRank("Banks Approval List - CAT A", 1, 0); //min max
+                $data.addListModelNextRank("Banks DRR Independent Credit Members", 1, 0); //min max
+                $data.addListModelNextRank("Banks Business Representative Approval List", 1, 1); //min max
+                $data.setRuleExecuted(true);
+                displayRuleTriggered(drools);
+        end
+        */
+
+        rule "MeetingTypeFinancialInstitutionReviewMandateBankNotWatchList"
+        agenda-group "MeetingTypeFinancialInstitutionReviewMandateBankRG"
+        activation-group "MeetingTypeFinancialInstitutionReviewMandateBankAG"
+        salience 9999
+            when
+                $data: ApprovalForumData(!ApprovalForumMetadata.DISTRESS_STATUS_WATCHLIST.equals(distressStatus))
+            then
+                displayRuleTriggered(drools);
+                drools.setFocus("MeetingTypeFinancialInstitutionReviewMandateBankNotWatchListRG");
+        end
+
+            rule "MeetingTypeFinancialInstitutionReviewMandateBankNotWatchListNotIndia"
+            agenda-group "MeetingTypeFinancialInstitutionReviewMandateBankNotWatchListRG"
+            activation-group "MeetingTypeFinancialInstitutionReviewMandateBankNotWatchListAG"
+            salience 9999
+                when
+                    $data: ApprovalForumData(!isRiskTakerGroupCode(ApprovalForumMetadata.INDIA))
+                then
+                    $data.setTotalNumberOfApprovalsRequired(5);
+                    $data.addListModel("Financial Institutions - Review Mandate Category A Approval List", 3, 0, 1); //min max rank
+                    $data.addListModel("Financial Institutions - Review Mandate Category B Approval List", 0, 2, 2); //min max rank
+                    $data.setRuleExecuted(true);
+                    displayRuleTriggered(drools);
+            end
+
+            rule "MeetingTypeFinancialInstitutionReviewMandateBankNotWatchListIndia"
+            agenda-group "MeetingTypeFinancialInstitutionReviewMandateBankNotWatchListRG"
+            activation-group "MeetingTypeFinancialInstitutionReviewMandateBankNotWatchListAG"
+            salience 9999
+                when
+                    $data: ApprovalForumData(isRiskTakerGroupCode(ApprovalForumMetadata.INDIA))
+                then
+                    $data.setTotalNumberOfApprovalsRequired(5);
+                    $data.addListModel("Financial Institutions - Review Mandate India Category A Approval List", 1, 1, 1); //min max rank
+                    $data.addListModel("Financial Institutions - Review Mandate India Category Approval List", 1, 1, 2); //min max rank
+                    $data.addListModel("Financial Institutions - Review Mandate Category A Approval List", 1, 0, 3); //min max rank
+                    $data.addListModel("Financial Institutions - Review Mandate Category B Approval List", 0, 2, 4); //min max rank
+
+                    $data.setRuleExecuted(true);
+                    displayRuleTriggered(drools);
+            end
+
+        rule "MeetingTypeFinancialInstitutionReviewMandateBankWatchList"
+        agenda-group "MeetingTypeFinancialInstitutionReviewMandateBankRG"
+        activation-group "MeetingTypeFinancialInstitutionReviewMandateBankAG"
+        salience 9999
+            when
+                $data: ApprovalForumData(ApprovalForumMetadata.DISTRESS_STATUS_WATCHLIST.equals(distressStatus))
+            then
+                displayRuleTriggered(drools);
+                drools.setFocus("MeetingTypeFinancialInstitutionReviewMandateBankWatchListRG");
+        end
+
+            rule "MeetingTypeFinancialInstitutionReviewMandateBankWatchListNotIndia"
+            agenda-group "MeetingTypeFinancialInstitutionReviewMandateBankWatchListRG"
+            activation-group "MeetingTypeFinancialInstitutionReviewMandateBankWatchListAG"
+            salience 9999
+                when
+                    $data: ApprovalForumData(!isRiskTakerGroupCode(ApprovalForumMetadata.INDIA))
+                then
+                    $data.setTotalNumberOfApprovalsRequired(6);
+                    $data.addListModel("Financial Institutions - Watchlist Approval List", 1, 1, 1); //min max rank
+                    $data.addListModel("Financial Institutions - Review Mandate Category A Approval List", 3, 0, 2); //min max rank
+                    $data.addListModel("Financial Institutions - Review Mandate Category B Approval List", 0, 2, 3); //min max rank
+                    $data.setRuleExecuted(true);
+                    displayRuleTriggered(drools);
+            end
+
+            rule "MeetingTypeFinancialInstitutionReviewMandateBankWatchListIndia"
+            agenda-group "MeetingTypeFinancialInstitutionReviewMandateBankWatchListRG"
+            activation-group "MeetingTypeFinancialInstitutionReviewMandateBankWatchListAG"
+            salience 9999
+                when
+                    $data: ApprovalForumData(isRiskTakerGroupCode(ApprovalForumMetadata.INDIA))
+                then
+                    $data.setTotalNumberOfApprovalsRequired(6);
+                    $data.addListModel("Financial Institutions - Watchlist Approval List", 1, 1, 1); //min max rank
+                    $data.addListModel("Financial Institutions - Review Mandate India Category A Approval List", 1, 1, 2); //min max rank
+                    $data.addListModel("Financial Institutions - Review Mandate India Category Approval List", 1, 1, 3); //min max rank
+                    $data.addListModel("Financial Institutions - Review Mandate Category A Approval List", 1, 0, 4); //min max rank
+                    $data.addListModel("Financial Institutions - Review Mandate Category B Approval List", 0, 2, 5); //min max rank
+                    $data.setRuleExecuted(true);
+                    displayRuleTriggered(drools);
+            end
+
+        rule "MeetingTypeFinancialInstitutionReviewMandateFinAmRf"
+        agenda-group "MeetingTypeFinancialInstitutionReviewMandateFinRG"
+        activation-group "MeetingTypeFinancialInstitutionReviewMandateFinAG"
+        salience 9999
+            when
+                $data: ApprovalForumData("Asset Management Companies".equalsIgnoreCase(fit) ||
+                                         "Unit Trust Management Companies".equalsIgnoreCase(fit) ||
+                                         "Unit Trust Funds".equalsIgnoreCase(fit) ||
+                                         "Pension Funds".equalsIgnoreCase(fit) ||
+                                         "Provident Funds".equalsIgnoreCase(fit) ||
+                                         "Retirement Funds".equalsIgnoreCase(fit))
+            then
+                $data.addTotalNumberOfApprovalsRequired(3);
+                $data.addListModelNextRank("NBFI DRR Approval List - CAT A", 1, 1); //min max
+                $data.addListModelNextRank("NBFI DRR Independent Credit Members", 1, 1); //min max
+                $data.addListModelNextRank("NBFI Business Representative Approval List", 1, 1); //min max
+                $data.setRuleExecuted(true);
+                displayRuleTriggered(drools);
+        end
+
+        rule "MeetingTypeFinancialInstitutionReviewMandateFinOther"
+        agenda-group "MeetingTypeFinancialInstitutionReviewMandateFinRG"
+        activation-group "MeetingTypeFinancialInstitutionReviewMandateFinAG"
+        salience 9999
+            when
+                $data: ApprovalForumData()
+            then
+                $data.addTotalNumberOfApprovalsRequired(4);
+                $data.addListModelNextRank("NBFI DRR Approval List - CAT A", 1, 0); //min max
+                $data.addListModelNextRank("NBFI DRR Independent Credit Members", 1, 0); //min max
+                $data.addListModelNextRank("NBFI Business Representative Approval List", 1, 1); //min max
+                $data.setRuleExecuted(true);
+                displayRuleTriggered(drools);
+        end
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+//Financial Institutions DM Type 1
+//Financial Institutions Delegated Mandate A
+rule "MeetingTypeFinancialInstitutionDmType1"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("FINANCIAL_INSTITUTIONS_DM_TYPE_1".equals(meetingRule))
+    then
+        displayRuleTriggered(drools);
+        drools.setFocus("MeetingTypeFinancialInstitutionDmType1RG");
+end
+
+    /* CA-2088 Reverting to old rules for bank
+    rule "MeetingTypeFinancialInstitutionDmType1Bank"
+    agenda-group "MeetingTypeFinancialInstitutionDmType1RG"
+    activation-group "MeetingTypeFinancialInstitutionDmType1AG"
+    salience 9999
+        when
+            $data: ApprovalForumData(bank)
+        then
+            displayRuleTriggered(drools);
+            drools.setFocus("WatchlistRG");
+            drools.setFocus("LocalInternationalRG");
+            drools.setFocus("MeetingTypeFinancialInstitutionDmType1BankRG");
+    end
+
+        rule "MeetingTypeFinancialInstitutionDmType1BankOnly"
+        agenda-group "MeetingTypeFinancialInstitutionDmType1BankRG"
+        activation-group "MeetingTypeFinancialInstitutionDmType1BankAG"
+        salience 9999
+            when
+                $data: ApprovalForumData()
+            then
+                $data.addTotalNumberOfApprovalsRequired(4);
+                $data.addListModelNextRank("Banks Approval List - CAT A", 1, 0); //min max
+                $data.addListModelNextRank("Banks DM A Independent Credit Members", 1, 0); //min max
+                $data.addListModelNextRank("Banks Business Representative Approval List", 1, 1); //min max
+                $data.addListModelNextRank("Banks Approval List - CAT B", 0, 1); //min max
+                $data.setRuleExecuted(true);
+                displayRuleTriggered(drools);
+        end
+    */
+
+    rule "MeetingTypeFinancialInstitutionDmType1Bank"
+    agenda-group "MeetingTypeFinancialInstitutionDmType1RG"
+    activation-group "MeetingTypeFinancialInstitutionDmType1AG"
+    salience 9999
+        when
+            $data: ApprovalForumData(bank)
+        then
+            $data.setTotalNumberOfApprovalsRequired(3);
+            $data.addListModel("Financial Institutions DM Type 1 - Banks Category A Approval List", 1, 0, 1); //min max rank
+            $data.addListModel("Financial Institutions DM Type 1 - Banks Category B Approval List", 0, 1, 2); //min max rank
+            $data.addListModel("Banks Business Representative Approval List", 1, 1, 3); //min max rank
+            $data.setRuleExecuted(true);
+            displayRuleTriggered(drools);
+    end
+
+    rule "MeetingTypeFinancialInstitutionDmType1NotBank"
+    agenda-group "MeetingTypeFinancialInstitutionDmType1RG"
+    activation-group "MeetingTypeFinancialInstitutionDmType1AG"
+    salience 9999
+        when
+            $data: ApprovalForumData(!bank)
+        then
+            displayRuleTriggered(drools);
+            drools.setFocus("WatchlistRG");
+            drools.setFocus("LocalInternationalRG");
+            drools.setFocus("MeetingTypeFinancialInstitutionDmType1FinRG");
+    end
+
+        rule "MeetingTypeFinancialInstitutionDmType1FinAmRf"
+        agenda-group "MeetingTypeFinancialInstitutionDmType1FinRG"
+        activation-group "MeetingTypeFinancialInstitutionDmType1FinAG"
+        salience 9999
+            when
+                $data: ApprovalForumData("Asset Management Companies".equalsIgnoreCase(fit) ||
+                                         "Unit Trust Management Companies".equalsIgnoreCase(fit) ||
+                                         "Unit Trust Funds".equalsIgnoreCase(fit) ||
+                                         "Pension Funds".equalsIgnoreCase(fit) ||
+                                         "Provident Funds".equalsIgnoreCase(fit) ||
+                                         "Retirement Funds".equalsIgnoreCase(fit))
+            then
+                $data.addTotalNumberOfApprovalsRequired(2);
+                $data.addListModelNextRank("NBFI DM A Approval List - CAT A", 1, 1); //min max
+                $data.addListModelNextRank("NBFI Business Representative Approval List", 1, 1); //min max
+                $data.setRuleExecuted(true);
+                displayRuleTriggered(drools);
+        end
+
+        rule "MeetingTypeFinancialInstitutionDmType1FinOther"
+        agenda-group "MeetingTypeFinancialInstitutionDmType1FinRG"
+        activation-group "MeetingTypeFinancialInstitutionDmType1FinAG"
+        salience 9999
+            when
+                $data: ApprovalForumData()
+            then
+                $data.addTotalNumberOfApprovalsRequired(4);
+                $data.addListModelNextRank("NBFI DM A Approval List - CAT A", 1, 0); //min max
+                $data.addListModelNextRank("NBFI DM A Independent Credit Members", 1, 0); //min max
+                $data.addListModelNextRank("NBFI Business Representative Approval List", 1, 1); //min max
+                $data.addListModelNextRank("NBFI DM A Approval List - CAT B", 0, 1); //min max
+                $data.setRuleExecuted(true);
+                displayRuleTriggered(drools);
+        end
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+//Financial Institutions DM Type 1 (Team Lead)
+//Financial Institutions Delegated Mandate A (Team Lead)
+//Financial Institutions Delegated Mandate B - TAM
+rule "MeetingTypeFinancialInstitutionDmType1TeamLead"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("FINANCIAL_INSTITUTIONS_DM_TYPE_1_TEAM_LEAD".equals(meetingRule))
+    then
+        displayRuleTriggered(drools);
+        drools.setFocus("MeetingTypeFinancialInstitutionDmType1TeamLeadRG");
+end
+
+    /* CA-2088 Reverting to old rules for bank
+    rule "MeetingTypeFinancialInstitutionDmType1TeamLeadBank"
+    agenda-group "MeetingTypeFinancialInstitutionDmType1TeamLeadRG"
+    activation-group "MeetingTypeFinancialInstitutionDmType1TeamLeadAG"
+    salience 9999
+        when
+            $data: ApprovalForumData(bank)
+        then
+            displayRuleTriggered(drools);
+            drools.setFocus("WatchlistRG");
+            drools.setFocus("LocalInternationalRG");
+            drools.setFocus("MeetingTypeFinancialInstitutionDmType1TeamLeadBankOnlyRG");
+    end
+
+        rule "MeetingTypeFinancialInstitutionDmType1TeamLeadBankOnly"
+        agenda-group "MeetingTypeFinancialInstitutionDmType1TeamLeadBankOnlyRG"
+        activation-group "MeetingTypeFinancialInstitutionDmType1TeamLeadBankOnlyAG"
+        salience 9999
+            when
+                $data: ApprovalForumData()
+            then
+                $data.addTotalNumberOfApprovalsRequired(1);
+                $data.addListModelNextRank("TAM Approval List", 1, 1); //min max
+                $data.setRuleExecuted(true);
+                displayRuleTriggered(drools);
+        end
+    */
+
+    rule "MeetingTypeFinancialInstitutionDmType1TeamLeadBank"
+    agenda-group "MeetingTypeFinancialInstitutionDmType1TeamLeadRG"
+    activation-group "MeetingTypeFinancialInstitutionDmType1TeamLeadAG"
+    salience 9999
+        when
+            $data: ApprovalForumData(bank)
+        then
+            $data.setTotalNumberOfApprovalsRequired(1);
+            $data.addListModel("Financial Institutions DM Type 1 - Banks Team Leads Approval List", 1, 1, 1); //min max rank
+            $data.setRuleExecuted(true);
+            displayRuleTriggered(drools);
+    end
+
+    rule "MeetingTypeFinancialInstitutionDmType1TeamLeadNotBank"
+    agenda-group "MeetingTypeFinancialInstitutionDmType1TeamLeadRG"
+    activation-group "MeetingTypeFinancialInstitutionDmType1TeamLeadAG"
+    salience 9999
+        when
+            $data: ApprovalForumData(!bank)
+        then
+            displayRuleTriggered(drools);
+            drools.setFocus("WatchlistRG");
+            drools.setFocus("LocalInternationalRG");
+            drools.setFocus("MeetingTypeFinancialInstitutionDmType1TeamLeadFinRG");
+    end
+
+        rule "MeetingTypeFinancialInstitutionDmType1TeamLeadFinAmRf"
+        agenda-group "MeetingTypeFinancialInstitutionDmType1TeamLeadFinRG"
+        activation-group "MeetingTypeFinancialInstitutionDmType1TeamLeadFinAG"
+        salience 9999
+            when
+                $data: ApprovalForumData("Asset Management Companies".equalsIgnoreCase(fit) ||
+                                         "Unit Trust Management Companies".equalsIgnoreCase(fit) ||
+                                         "Unit Trust Funds".equalsIgnoreCase(fit) ||
+                                         "Pension Funds".equalsIgnoreCase(fit) ||
+                                         "Provident Funds".equalsIgnoreCase(fit) ||
+                                         "Retirement Funds".equalsIgnoreCase(fit))
+            then
+                $data.addTotalNumberOfApprovalsRequired(1);
+                $data.addListModelNextRank("TAM Approval List", 1, 1); //min max
+                $data.setRuleExecuted(true);
+                displayRuleTriggered(drools);
+        end
+
+        rule "MeetingTypeFinancialInstitutionDmType1TeamLeadFinOther"
+        agenda-group "MeetingTypeFinancialInstitutionDmType1TeamLeadFinRG"
+        activation-group "MeetingTypeFinancialInstitutionDmType1TeamLeadFinAG"
+        salience 9999
+            when
+                $data: ApprovalForumData()
+            then
+                $data.addTotalNumberOfApprovalsRequired(1);
+                $data.addListModelNextRank("TAM Approval List", 1, 1); //min max
+                $data.setRuleExecuted(true);
+                displayRuleTriggered(drools);
+        end
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+//Financial Institutions DM Type 2
+//Financial Institutions and Country Delegated Mandate B
+rule "MeetingTypeFinancialInstitutionDmType2"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("FINANCIAL_INSTITUTIONS_DM_TYPE_2".equals(meetingRule))
+    then
+        displayRuleTriggered(drools);
+        drools.setFocus("MeetingTypeFinancialInstitutionDmType2RG");
+end
+
+    /* CA-2088 Reverting to old rules for bank
+    rule "MeetingTypeFinancialInstitutionDmType2Bank"
+    agenda-group "MeetingTypeFinancialInstitutionDmType2RG"
+    activation-group "MeetingTypeFinancialInstitutionDmType2AG"
+    salience 9999
+        when
+            $data: ApprovalForumData(bank)
+        then
+            displayRuleTriggered(drools);
+            drools.setFocus("WatchlistRG");
+            drools.setFocus("LocalInternationalRG");
+            drools.setFocus("MeetingTypeFinancialInstitutionDmType2BankRG");
+    end
+
+        rule "MeetingTypeFinancialInstitutionDmType2BankOnly"
+        agenda-group "MeetingTypeFinancialInstitutionDmType2BankRG"
+        activation-group "MeetingTypeFinancialInstitutionDmType2BankAG"
+        salience 9999
+            when
+                $data: ApprovalForumData()
+            then
+                $data.addTotalNumberOfApprovalsRequired(4);
+                $data.addListModelNextRank("Banks Approval List - CAT A", 2, 0); //min max
+                $data.addListModelNextRank("Banks Business Representative Approval List", 1, 1); //min max
+                $data.addListModelNextRank("Banks Approval List - CAT B", 0, 1); //min max
+                $data.setRuleExecuted(true);
+                displayRuleTriggered(drools);
+        end
+    */
+
+    rule "MeetingTypeFinancialInstitutionDmType2Bank"
+    agenda-group "MeetingTypeFinancialInstitutionDmType2RG"
+    activation-group "MeetingTypeFinancialInstitutionDmType2AG"
+    salience 9999
+        when
+            $data: ApprovalForumData(bank)
+        then
+            $data.setTotalNumberOfApprovalsRequired(1);
+            $data.addListModel("Financial Institutions DM Type 2 - Banks Approval List", 1, 1, 1); //min max rank
+            $data.setRuleExecuted(true);
+            displayRuleTriggered(drools);
+    end
+
+    rule "MeetingTypeFinancialInstitutionDmType2NotBank"
+    agenda-group "MeetingTypeFinancialInstitutionDmType2RG"
+    activation-group "MeetingTypeFinancialInstitutionDmType2AG"
+    salience 9999
+        when
+            $data: ApprovalForumData(!bank)
+        then
+            displayRuleTriggered(drools);
+            drools.setFocus("WatchlistRG");
+            drools.setFocus("LocalInternationalRG");
+            drools.setFocus("MeetingTypeFinancialInstitutionDmType2FinRG");
+    end
+
+        rule "MeetingTypeFinancialInstitutionDmType2FinAmRf"
+        agenda-group "MeetingTypeFinancialInstitutionDmType2FinRG"
+        activation-group "MeetingTypeFinancialInstitutionDmType2FinAG"
+        salience 9999
+            when
+                $data: ApprovalForumData("Asset Management Companies".equalsIgnoreCase(fit) ||
+                                         "Unit Trust Management Companies".equalsIgnoreCase(fit) ||
+                                         "Unit Trust Funds".equalsIgnoreCase(fit) ||
+                                         "Pension Funds".equalsIgnoreCase(fit) ||
+                                         "Provident Funds".equalsIgnoreCase(fit) ||
+                                         "Retirement Funds".equalsIgnoreCase(fit))
+            then
+                $data.addTotalNumberOfApprovalsRequired(2);
+                $data.addListModelNextRank("NBFI DM B Approval List - CAT A", 1, 1); //min max
+                $data.addListModelNextRank("NBFI Business Representative Approval List", 1, 1); //min max
+
+                $data.addNewModel();
+                $data.addTotalNumberOfApprovalsRequired(1);
+                $data.addListModelNextRank("NBFI DM B Approval List - CAT A", 1, 1); //min max
+
+                $data.setRuleExecuted(true);
+                displayRuleTriggered(drools);
+        end
+
+        rule "MeetingTypeFinancialInstitutionDmType2FinOther"
+        agenda-group "MeetingTypeFinancialInstitutionDmType2FinRG"
+        activation-group "MeetingTypeFinancialInstitutionDmType2FinAG"
+        salience 9999
+            when
+                $data: ApprovalForumData()
+            then
+                $data.addTotalNumberOfApprovalsRequired(3);
+                $data.addListModelNextRank("NBFI DM B Approval List - CAT A", 2, 2); //min max
+                $data.addListModelNextRank("NBFI Business Representative Approval List", 1, 1); //min max
+
+                $data.addNewModel();
+                $data.addTotalNumberOfApprovalsRequired(1);
+                $data.addListModelNextRank("NBFI DM B Approval List - CAT A", 1, 1); //min max
+
+                $data.setRuleExecuted(true);
+                displayRuleTriggered(drools);
+        end
+
+// ---------------------------------------------------------------------------------------------------------------------
+// NBFI Diversified Credit Delegated Mandate
+        rule "MeetingTypeFinancialInstitutionDiversifiedCreditDelegatedMandate"
+        activation-group "all"
+        salience 99999
+            when
+                $data: ApprovalForumData("FINANCIAL_INSTITUTIONS_DIVERSIFIED_MANDATE".equals(meetingRule))
+            then
+                $data.setTotalNumberOfApprovalsRequired(1);
+                $data.addListModel("NBFI Diversified Credit Members", 0, 1, 1); //min max rank
+                $data.addListModel("NBFI DM B Approval List - CAT A", 0, 1, 2); //min max rank
+
+                $data.addNewModel();
+                $data.addTotalNumberOfApprovalsRequired(2);
+                $data.addListModel("NBFI Diversified Credit Members", 1, 0, 1); //min max rank
+                $data.addListModel("NBFI DM B Approval List - CAT A", 0, 1, 2); //min max rank
+
+                $data.setRuleExecuted(true);
+                displayRuleTriggered(drools);
+        end
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Diversified Credit Mandates
+// ---------------------------------------------------------------------------------------------------------------------
+
+rule "MeetingTypeDiversifiedMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DIVERSIFIED_MANDATE".equals(meetingRule))
+    then
+        displayRuleTriggered(drools);
+        drools.setFocus("MeetingTypeDiversifiedMandateRG");
+end
+
+    rule "MeetingTypeDiversifiedMandateNotWatchList"
+    agenda-group "MeetingTypeDiversifiedMandateRG"
+    activation-group "MeetingTypeDiversifiedMandateAG"
+    salience 9999
+        when
+            $data: ApprovalForumData(!ApprovalForumMetadata.DISTRESS_STATUS_WATCHLIST.equals(distressStatus))
+        then
+            $data.setTotalNumberOfApprovalsRequired(1);
+            $data.addListModel("Diversified Credit - Team Leads Approval List", 1, 1, 1); //min max rank
+
+            $data.addNewModel();
+
+            $data.setTotalNumberOfApprovalsRequired(2);
+            $data.addListModel("Diversified Credit - Category AA Approval List", 1, 1, 1); //min max rank
+            $data.addListModel("Credit Team Leads Approval List", 1, 1, 2); //min max rank
+
+            $data.setRuleExecuted(true);
+            displayRuleTriggered(drools);
+    end
+
+    rule "MeetingTypeDiversifiedMandateWatchList"
+    agenda-group "MeetingTypeDiversifiedMandateRG"
+    activation-group "MeetingTypeDiversifiedMandateAG"
+    salience 9999
+        when
+            $data: ApprovalForumData(ApprovalForumMetadata.DISTRESS_STATUS_WATCHLIST.equals(distressStatus))
+        then
+            $data.setTotalNumberOfApprovalsRequired(2);
+            $data.addListModel("Watchlist Approval List", 1, 1, 1); //min max rank
+            $data.addListModel("Diversified Credit - Team Leads Approval List", 1, 1, 2); //min max rank
+
+            $data.addNewModel();
+
+            $data.setTotalNumberOfApprovalsRequired(3);
+            $data.addListModel("Watchlist Approval List", 1, 1, 1); //min max rank
+            $data.addListModel("Diversified Credit - Category AA Approval List", 1, 1, 2); //min max rank
+            $data.addListModel("Credit Team Leads Approval List", 1, 1, 3); //min max rank
+
+            $data.setRuleExecuted(true);
+            displayRuleTriggered(drools);
+    end
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+rule "MeetingTypeDiversifiedCreditDelegatedMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DIVERSIFIED_CREDIT_DELEGATED_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModel("Diversified Credit - Senior Analysts Approval List", 1, 1, 1); //min max rank
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+
+// LOCAL INTERNATIONAL RULES - DO NOT CHANGE THE ORDER IN WHICH THEY APPEAR BELOW UNLESS THE RANKING CHANGES
+// ---------------------------------------------------------------------------------------------------------
+
+rule "LocalInternationalSubs"
+agenda-group "LocalInternationalRG"
+activation-group "LocalInternationalSubsAG"
+salience 99999
+    when
+        $data: ApprovalForumData((isRiskTakerGroupCode(ApprovalForumMetadata.BOTSWANA) || isRiskTakerGroupCode(ApprovalForumMetadata.NAMIBIA) ||
+                    isRiskTakerGroupCode(ApprovalForumMetadata.ZAMBIA) || isRiskTakerGroupCode(ApprovalForumMetadata.NIGERIA) ||
+                    isRiskTakerGroupCode(ApprovalForumMetadata.GHANA) || isRiskTakerGroupCode(ApprovalForumMetadata.MOZAMBIQUE) ||
+                    isRiskTakerGroupCode(ApprovalForumMetadata.TANZANIA) || isRiskTakerGroupCode(ApprovalForumMetadata.MAURITIUS)) &&
+                    (isAnnualReview() || (!isAnnualReview() &&
+                    (isFacilityMovementChanged(ApprovalForumMetadata.BOTSWANA) || isFacilityMovementChanged(ApprovalForumMetadata.NAMIBIA) ||
+                                        isFacilityMovementChanged(ApprovalForumMetadata.ZAMBIA) || isFacilityMovementChanged(ApprovalForumMetadata.NIGERIA) ||
+                                        isFacilityMovementChanged(ApprovalForumMetadata.GHANA) || isFacilityMovementChanged(ApprovalForumMetadata.MOZAMBIQUE) ||
+                                        isFacilityMovementChanged(ApprovalForumMetadata.TANZANIA) || isFacilityMovementChanged(ApprovalForumMetadata.MAURITIUS)))))
+    then
+        $data.addTotalNumberOfApprovalsRequiredToAll(1);
+        $data.popListModelToHighestRank("ROA Approval List", 1, 1); //min max
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+rule "LocalInternationalIndia"
+agenda-group "LocalInternationalRG"
+activation-group "LocalInternationalIndiaAG"
+salience 99999
+    when
+        $data: ApprovalForumData(isRiskTakerGroupCode(ApprovalForumMetadata.INDIA) && (isAnnualReview() || (!isAnnualReview() && isFacilityMovementChanged(ApprovalForumMetadata.INDIA))))
+    then
+        $data.addTotalNumberOfApprovalsRequiredToAll(1);
+        $data.popListModelToHighestRank("India Approval List", 1, 1); //min max
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+rule "LocalInternationalLondon"
+agenda-group "LocalInternationalRG"
+activation-group "LocalInternationalLondonAG"
+salience 99999
+    when
+        $data: ApprovalForumData(isRiskTakerGroupCode(ApprovalForumMetadata.LONDON) && (isAnnualReview() || (!isAnnualReview() && isFacilityMovementChanged(ApprovalForumMetadata.LONDON))))
+    then
+        $data.addTotalNumberOfApprovalsRequiredToAll(1);
+        $data.popListModelToHighestRank("London Approval List", 1, 1); //min max
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+// WATCHLIST RULE -------------------------------------------------------------------------------------------------------
+
+rule "Watchlist"
+agenda-group "WatchlistRG"
+activation-group "WatchlistAG"
+salience 999999
+    when
+        $data: ApprovalForumData(ApprovalForumMetadata.DISTRESS_STATUS_WATCHLIST.equals(distressStatus))
+    then
+        $data.addTotalNumberOfApprovalsRequiredToAll(1);
+        $data.popListModelToHighestRank("Watchlist Approval List", 1, 1); //min max rank
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//----------------------------------------------------------------------------------------------------------------------
+
+rule "MeetingTypeNamibiaIcrc"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("NAMIBIA_ICRC".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(3);
+        $data.addListModel("Enablement and Regional Heads Approval List", 0, 1, 1); //min max rank
+        $data.addListModel("Namibia ICRC Approval List - CAT A", 1, 0, 2); //min max rank
+        $data.addListModel("Namibia ICRC Approval List - CAT B", 1, 0, 3); //min max rank
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//----------------------------------------------------------------------------------------------------------------------
+
+rule "MeetingTypeBotswanaDelegatedMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("BOTSWANA_DELEGATED_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(2);
+        $data.addListModel("Botswana DM RMB Approval List - CAT A", 0, 1, 1); //min max rank
+        $data.addListModel("Botswana DM RMB Approval List - CAT B", 0, 1, 2); //min max rank
+        $data.addListModel("Botswana Relationship Managers", 1, 1, 3); //min max rank
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//----------------------------------------------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------------------------------------
+// Session C  Mandates
+// ---------------------------------------------------------------------------------------------------------------------
+
+rule "MeetingTypeSessionCMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("SESSION_C_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(5);
+        $data.addListModelNextRank("Session C Chairperson", 1, 1); //min max
+        $data.addListModelNextRank("Central Credit Executives", 2, 2); //min max
+        $data.addListModelNextRank("Business Representative Approval List", 1, 1); //min max
+        $data.addListModelNextRank("Business Credit Executives", 1, 1); //min max
+
+        $data.addNewModel();
+        $data.setTotalNumberOfApprovalsRequired(6);
+        $data.addListModelNextRank("Session C Chairperson", 1, 1); //min max
+        $data.addListModelNextRank("Central Credit Executives", 3, 3); //min max
+        $data.addListModelNextRank("Business Representative Approval List", 1, 1); //min max
+        $data.addListModelNextRank("Business Credit Executives", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//----------------------------------------------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------------------------------------
+// Kamva
+// Kamva 2.0 – ADD-ONLY rules for existing and new sub-committees + DA4 zero-quorum
+// ---------------------------------------------------------------------------------------------------------------------
+
+//Delegated Authority 1 Corporates
+rule "MeetingTypeDelegatedAuthority1CorporatesMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DELEGATED_AUTHORITY_1_CORP_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(3);
+        $data.addListModelNextRank("Category A Delegated Authorities Corporates", 2, 2); //min max
+        //$data.addListModelNextRank("Category B Delegated Authorities Corporates", 1, 1); //min max
+        $data.addListModelNextRank("Business Representative Corporates", 1, 1); //min max
+
+		$data.addNewModel();
+		$data.setTotalNumberOfApprovalsRequired(2);
+        $data.addListModelNextRank("Category A Delegated Authorities Corporates", 2, 2); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+//Delegated Authority 1 Institutions
+rule "MeetingTypeDelegatedAuthority1InstitutionsMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DELEGATED_AUTHORITY_1_INSTITUTIONS_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(3);
+        $data.addListModelNextRank("Category A Delegated Authorities Institutions", 2, 2); //min max
+        //$data.addListModelNextRank("Category B Delegated Authorities Institutions", 1, 1); //min max
+        $data.addListModelNextRank("Business Representative Institutions", 1, 1); //min max
+
+		$data.addNewModel();
+		$data.setTotalNumberOfApprovalsRequired(2);
+        $data.addListModelNextRank("Category A Delegated Authorities Institutions", 2, 2); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+//Delegated Authority 1 International and Specialised Finance
+// Kamva 2.0 this mandate has been deprecated
+/*rule "MeetingTypeDelegatedAuthority1ISFMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DELEGATED_AUTHORITY_1_ISF_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(4);
+        $data.addListModelNextRank("Category A Delegated Authorities International and Specialised Fin", 2, 2); //min max
+        $data.addListModelNextRank("Category B Delegated Authorities International and Specialised Fin", 1, 1); //min max
+        $data.addListModelNextRank("Business Representative International and Specialised Fin", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end*/
+// ---------------------------------------------------------------------------------------------------------------------
+//Delegated Authority 1 Leverage Finance and Family Office Group Strategy
+// Kamva 2.0 this mandate has been seperated into 2
+rule "MeetingTypeDelegatedAuthority1FOGSMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DELEGATED_AUTHORITY_1_FOGS_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(3);
+        $data.addListModelNextRank("Category A Delegated Authorities Family Office Group Solutions", 2,2);
+		$data.addListModelNextRank("Business Representative Family Office Group Solutions", 1,1);
+
+		$data.addNewModel();
+		$data.setTotalNumberOfApprovalsRequired(2);
+		$data.addListModelNextRank("Category A Delegated Authorities Family Office Group Solutions", 2,2);
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+//Delegated Authority 1 Property Finance
+rule "MeetingTypeDelegatedAuthority1PropertyFinanceMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DELEGATED_AUTHORITY_1_PROP_FIN_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(3);
+        $data.addListModelNextRank("Category A Delegated Authorities Property Finance", 2, 2); //min max
+        //$data.addListModelNextRank("Category B Delegated Authorities Property Finance", 1, 1); //min max
+        $data.addListModelNextRank("Business Representative Property Finance", 1, 1); //min max
+
+		$data.addNewModel();
+		$data.setTotalNumberOfApprovalsRequired(2);
+		$data.addListModelNextRank("Category A Delegated Authorities Property Finance", 2,2);
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+// Delegated Authority 1 LEVERAGE FINANCE
+rule "MeetingTypeDelegatedAuthority1LeverageFinanceMandate"
+activation-group "all"
+salience 99999
+	when
+		$data: ApprovalForumData("DELEGATED_AUTHORITY_1_LEV_FIN_MANDATE".equals(meetingRule))
+	then
+		$data.setTotalNumberOfApprovalsRequired(3);
+		$data.addListModelNextRank("Category A Delegated Authorities Leverage Finance", 2,2);
+		$data.addListModelNextRank("Business Representative Leverage Finance", 1,1);
+
+		$data.addNewModel();
+		$data.setTotalNumberOfApprovalsRequired(2);
+		$data.addListModelNextRank("Category A Delegated Authorities Leverage Finance", 2,2);
+
+		$data.setRuleExecuted(true);
+		displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+//Delegated Authority 1 INFRASTRUCTURE FINANCE
+rule "MeetingTypeDelegatedAuthority1InfrastructureFinanceMandate"
+activation-group "all"
+salience 99999
+	when
+		$data: ApprovalForumData("DELEGATED_AUTHORITY_1_INFRA_FIN_MANDATE".equals(meetingRule))
+	then
+		$data.setTotalNumberOfApprovalsRequired(3);
+		$data.addListModelNextRank("Category A Delegated Authorities Infrastructure Finance", 2,2);
+		$data.addListModelNextRank("Business Representative Infrastructure Finance", 1,1);
+
+		$data.addNewModel();
+		$data.setTotalNumberOfApprovalsRequired(2);
+		$data.addListModelNextRank("Category A Delegated Authorities Infrastructure Finance", 2,2);
+
+		$data.setRuleExecuted(true);
+		displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+//Delegated Authority 1 RESOURCES FINANCE
+rule "MeetingTypeDelegatedAuthority1ResourcesFinanceMandate"
+activation-group "all"
+salience 99999
+	when
+		$data: ApprovalForumData("DELEGATED_AUTHORITY_1_RESOURCES_MANDATE".equals(meetingRule))
+	then
+		$data.setTotalNumberOfApprovalsRequired(3);
+		$data.addListModelNextRank("Category A Delegated Authorities Resources Finance", 2,2);
+		$data.addListModelNextRank("Business Representative Resources Finance", 1,1);
+
+		$data.addNewModel();
+		$data.setTotalNumberOfApprovalsRequired(2);
+		$data.addListModelNextRank("Category A Delegated Authorities Resources Finance", 2,2);
+
+		$data.setRuleExecuted(true);
+		displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+//Delegated Authority 2 Corporates
+rule "MeetingTypeDelegatedAuthority2CorporatesMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DELEGATED_AUTHORITY_2_CORP_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(3);
+        $data.addListModelNextRank("Category A Delegated Authorities Corporates", 1, 1); //min max
+        $data.addListModelNextRank("Category B Delegated Authorities Corporates", 1, 1); //min max
+        $data.addListModelNextRank("Business Representative Corporates", 1, 1); //min max
+
+		$data.addNewModel();
+		$data.setTotalNumberOfApprovalsRequired(2);
+        $data.addListModelNextRank("Category A Delegated Authorities Corporates", 1, 1); //min max
+        $data.addListModelNextRank("Category B Delegated Authorities Corporates", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+//Delegated Authority 2 Institutions
+rule "MeetingTypeDelegatedAuthority2InstitutionsMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DELEGATED_AUTHORITY_2_INSTITUTIONS_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(3);
+        $data.addListModelNextRank("Category A Delegated Authorities Institutions", 1, 1); //min max
+        $data.addListModelNextRank("Category B Delegated Authorities Institutions", 1, 1); //min max
+        $data.addListModelNextRank("Business Representative Institutions", 1, 1); //min max
+
+		$data.addNewModel();
+		$data.setTotalNumberOfApprovalsRequired(2);
+        $data.addListModelNextRank("Category A Delegated Authorities Institutions", 1, 1); //min max
+        $data.addListModelNextRank("Category B Delegated Authorities Institutions", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+//Delegated Authority 2 International and Specialised Finance
+// Kamva 2.0 this mandate has been deprecated
+/*rule "MeetingTypeDelegatedAuthority2ISFMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DELEGATED_AUTHORITY_2_ISF_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(3);
+        $data.addListModelNextRank("Category A Delegated Authorities International and Specialised Fin", 1, 1); //min max
+        $data.addListModelNextRank("Category B Delegated Authorities International and Specialised Fin", 1, 1); //min max
+        $data.addListModelNextRank("Business Representative International and Specialised Fin", 1, 1); //min max
+
+		$data.addNewModel();
+		$data.setTotalNumberOfApprovalsRequired(2);
+        $data.addListModelNextRank("Category A Delegated Authorities International and Specialised Fin", 1, 1); //min max
+        $data.addListModelNextRank("Category B Delegated Authorities International and Specialised Fin", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end*/
+// ---------------------------------------------------------------------------------------------------------------------
+//Delegated Authority 2 Family Office Group Solutions
+rule "MeetingTypeDelegatedAuthority2FOGSMandate"
+activation-group "all"
+salience 99999
+	when
+		$data: ApprovalForumData("DELEGATED_AUTHORITY_2_FOGS_MANDATE".equals(meetingRule))
+	then
+		$data.setTotalNumberOfApprovalsRequired(3);
+		$data.addListModelNextRank("Category A Delegated Authorities Family Office Group Solutions", 1,1);
+		$data.addListModelNextRank("Category B Delegated Authorities Family Office Group Solutions", 1,1);
+		$data.addListModelNextRank("Business Representative Family Office Group Solutions", 1,1);
+
+		$data.addNewModel();
+		$data.setTotalNumberOfApprovalsRequired(2);
+		$data.addListModelNextRank("Category A Delegated Authorities Family Office Group Solutions", 1,1);
+		$data.addListModelNextRank("Category B Delegated Authorities Family Office Group Solutions", 1,1);
+
+		$data.setRuleExecuted(true);
+		displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+//Delegated Authority 2 Property Finance
+rule "MeetingTypeDelegatedAuthority2PropertyFinanceMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DELEGATED_AUTHORITY_2_PROP_FIN_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(3);
+        $data.addListModelNextRank("Category A Delegated Authorities Property Finance", 1, 1); //min max
+        $data.addListModelNextRank("Category B Delegated Authorities Property Finance", 1, 1); //min max
+        $data.addListModelNextRank("Business Representative Property Finance", 1, 1); //min max
+
+		$data.addNewModel();
+		$data.setTotalNumberOfApprovalsRequired(2);
+        $data.addListModelNextRank("Category A Delegated Authorities Property Finance", 1, 1); //min max
+        $data.addListModelNextRank("Category B Delegated Authorities Property Finance", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+// Delegated Authority 2 LEVERAGE FINANCE
+rule "MeetingTypeDelegatedAuthority2LeverageFinanceMandate"
+activation-group "all"
+salience 99999
+	when
+		$data: ApprovalForumData("DELEGATED_AUTHORITY_2_LEV_FIN_MANDATE".equals(meetingRule))
+	then
+		$data.setTotalNumberOfApprovalsRequired(3);
+		$data.addListModelNextRank("Category A Delegated Authorities Leverage Finance", 1,1);
+		$data.addListModelNextRank("Category B Delegated Authorities Leverage Finance", 1,1);
+		$data.addListModelNextRank("Business Representative Leverage Finance", 1,1);
+
+		$data.addNewModel();
+		$data.setTotalNumberOfApprovalsRequired(2);
+		$data.addListModelNextRank("Category A Delegated Authorities Leverage Finance", 1,1);
+		$data.addListModelNextRank("Category B Delegated Authorities Leverage Finance", 1,1);
+
+		$data.setRuleExecuted(true);
+		displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+//Delegated Authority 2 INFRASTRUCTURE FINANCE
+rule "MeetingTypeDelegatedAuthority2InfrastructureFinanceMandate"
+activation-group "all"
+salience 99999
+	when
+		$data: ApprovalForumData("DELEGATED_AUTHORITY_2_INFRA_FIN_MANDATE".equals(meetingRule))
+	then
+		$data.setTotalNumberOfApprovalsRequired(3);
+		$data.addListModelNextRank("Category A Delegated Authorities Infrastructure Finance", 1,1);
+		$data.addListModelNextRank("Category B Delegated Authorities Infrastructure Finance", 1,1);
+		$data.addListModelNextRank("Business Representative Infrastructure Finance", 1,1);
+
+		$data.addNewModel();
+		$data.setTotalNumberOfApprovalsRequired(2);
+		$data.addListModelNextRank("Category A Delegated Authorities Infrastructure Finance", 1,1);
+		$data.addListModelNextRank("Category B Delegated Authorities Infrastructure Finance", 1,1);
+
+		$data.setRuleExecuted(true);
+		displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+//Delegated Authority 2 RESOURCES FINANCE
+rule "MeetingTypeDelegatedAuthority2ResourcesFinanceMandate"
+activation-group "all"
+salience 99999
+	when
+		$data: ApprovalForumData("DELEGATED_AUTHORITY_2_RESOURCES_MANDATE".equals(meetingRule))
+	then
+		$data.setTotalNumberOfApprovalsRequired(3);
+		$data.addListModelNextRank("Category A Delegated Authorities Resources Finance", 1,1);
+		$data.addListModelNextRank("Category B Delegated Authorities Resources Finance", 1,1);
+		$data.addListModelNextRank("Business Representative Resources Finance", 1,1);
+
+		$data.addNewModel();
+		$data.setTotalNumberOfApprovalsRequired(2);
+		$data.addListModelNextRank("Category A Delegated Authorities Resources Finance", 1,1);
+		$data.addListModelNextRank("Category B Delegated Authorities Resources Finance", 1,1);
+
+		$data.setRuleExecuted(true);
+		displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+//Delegated Authority 3 Corporates
+rule "MeetingTypeDelegatedAuthority3CorporatesMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DELEGATED_AUTHORITY_3_CORP_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(2);
+        $data.addListModelNextRank("Category B Delegated Authorities Corporates", 1, 1); //min max
+		$data.addListModelNextRank("Business Representative Corporates", 1,1);
+
+        $data.addNewModel();
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Category B Delegated Authorities Corporates", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+//Delegated Authority 3 Institutions
+rule "MeetingTypeDelegatedAuthority3InstitutionsMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DELEGATED_AUTHORITY_3_INSTITUTIONS_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(2);
+        $data.addListModelNextRank("Category B Delegated Authorities Institutions", 1, 1); //min max
+		$data.addListModelNextRank("Business Representative Institutions", 1,1);
+
+        $data.addNewModel();
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Category B Delegated Authorities Institutions", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+//Delegated Authority 3 International and Specialised Finance
+// Kamva 2.0 this mandate has been deprecated
+/*rule "MeetingTypeDelegatedAuthority3ISFMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DELEGATED_AUTHORITY_3_ISF_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Category B Delegated Authorities International and Specialised Fin", 1, 1); //min max
+
+        //$data.addNewModel();
+        //$data.setTotalNumberOfApprovalsRequired(1);
+        //$data.addListModelNextRank("Category A Delegated Authorities International and Specialised Fin", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end*/
+// ---------------------------------------------------------------------------------------------------------------------
+//Delegated Authority 3 Leverage Finance and Family Office Group Solutions
+rule "MeetingTypeDelegatedAuthority3FOGSMandate"
+activation-group "all"
+salience 99999
+	when
+		$data: ApprovalForumData("DELEGATED_AUTHORITY_3_FOGS_MANDATE".equals(meetingRule))
+	then
+		$data.setTotalNumberOfApprovalsRequired(2);
+		$data.addListModelNextRank("Category B Delegated Authorities Family Office Group Solutions", 1,1);
+		$data.addListModelNextRank("Business Representative Family Office Group Solutions", 1,1);
+
+		$data.addNewModel();
+		$data.setTotalNumberOfApprovalsRequired(1);
+		$data.addListModelNextRank("Category B Delegated Authorities Family Office Group Solutions", 1,1);
+
+		$data.setRuleExecuted(true);
+		displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+//Delegated Authority 3 Property Finance
+rule "MeetingTypeDelegatedAuthority3PropertyFinanceMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("DELEGATED_AUTHORITY_3_PROP_FIN_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(2);
+        $data.addListModelNextRank("Category B Delegated Authorities Property Finance", 1, 1); //min max
+		$data.addListModelNextRank("Business Representative Property Finance", 1,1);
+
+        $data.addNewModel();
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Category B Delegated Authorities Property Finance", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+
+end
+// ---------------------------------------------------------------------------------------------------------------------
+// Delegated Authority 3 LEVERAGE FINANCE
+rule "MeetingTypeDelegatedAuthority3LeverageFinanceMandate"
+activation-group "all"
+salience 99999
+when
+	$data: ApprovalForumData("DELEGATED_AUTHORITY_3_LEV_FIN_MANDATE".equals(meetingRule))
+then
+	$data.setTotalNumberOfApprovalsRequired(2);
+	$data.addListModelNextRank("Category B Delegated Authorities Leverage Finance", 1,1);
+	$data.addListModelNextRank("Business Representative Leverage Finance", 1,1);
+
+	$data.addNewModel();
+	$data.setTotalNumberOfApprovalsRequired(1);
+	$data.addListModelNextRank("Category B Delegated Authorities Leverage Finance", 1,1);
+
+	$data.setRuleExecuted(true);
+	displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+// Delegated Authority 3 INFRASTRUCTURE FINANCE
+rule "MeetingTypeDelegatedAuthority3InfrastructureFinanceMandate"
+activation-group "all"
+salience 99999
+when
+    $data: ApprovalForumData("DELEGATED_AUTHORITY_3_INFRA_FIN_MANDATE".equals(meetingRule))
+then
+    $data.setTotalNumberOfApprovalsRequired(2);
+    $data.addListModelNextRank("Category B Delegated Authorities Infrastructure Finance", 1,1);
+    $data.addListModelNextRank("Business Representative Infrastructure Finance", 1,1);
+
+    $data.addNewModel();
+    $data.setTotalNumberOfApprovalsRequired(1);
+    $data.addListModelNextRank("Category B Delegated Authorities Infrastructure Finance", 1,1);
+
+    $data.setRuleExecuted(true);
+    displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+// Delegated Authority 3 RESOURCES FINANCE
+rule "MeetingTypeDelegatedAuthority3ResourcesFinanceMandate"
+activation-group "all"
+salience 99999
+	when
+		$data: ApprovalForumData("DELEGATED_AUTHORITY_3_RESOURCES_MANDATE".equals(meetingRule))
+	then
+		$data.setTotalNumberOfApprovalsRequired(2);
+		$data.addListModelNextRank("Category B Delegated Authorities Resources Finance", 1,1);
+		$data.addListModelNextRank("Business Representative Resources Finance", 1,1);
+
+		$data.addNewModel();
+		$data.setTotalNumberOfApprovalsRequired(1);
+		$data.addListModelNextRank("Category B Delegated Authorities Resources Finance", 1,1);
+
+		$data.setRuleExecuted(true);
+		displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+// Delegated Authority 4 Corporates
+rule "MeetingTypeDelegatedAuthority4CorporatesMandate"
+activation-group "all"
+salience 99999
+when
+	$data: ApprovalForumData("DELEGATED_AUTHORITY_4_CORP_MANDATE".equals(meetingRule))
+then
+	$data.setTotalNumberOfApprovalsRequired(0);
+
+	$data.setRuleExecuted(true);
+	displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+// Delegated Authority 4 Institutions
+rule "MeetingTypeDelegatedAuthority4InstitutionsMandate"
+activation-group "all"
+salience 99999
+when
+	$data: ApprovalForumData("DELEGATED_AUTHORITY_4_INSTITUTIONS_MANDATE".equals(meetingRule))
+then
+	$data.setTotalNumberOfApprovalsRequired(0);
+
+	$data.setRuleExecuted(true);
+	displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+// Delegated Authority 4 Property Finance
+rule "MeetingTypeDelegatedAuthority4PropertyFinanceMandate"
+activation-group "all"
+salience 99999
+when
+	$data: ApprovalForumData("DELEGATED_AUTHORITY_4_PROP_FIN_MANDATE".equals(meetingRule))
+then
+	$data.setTotalNumberOfApprovalsRequired(0);
+
+	$data.setRuleExecuted(true);
+	displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+// Delegated Authority 4 LEVERAGE FINANCE
+rule "MeetingTypeDelegatedAuthority4LeverageFinanceMandate"
+activation-group "all"
+salience 99999
+when
+	$data: ApprovalForumData("DELEGATED_AUTHORITY_4_LEV_FIN_MANDATE".equals(meetingRule))
+then
+	$data.setTotalNumberOfApprovalsRequired(0);
+
+	$data.setRuleExecuted(true);
+	displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+// Delegated Authority 4 FAMILY OFFICE GROUP SOLUTIONS
+rule "MeetingTypeDelegatedAuthority4FOGSMandate"
+activation-group "all"
+salience 99999
+when
+	$data: ApprovalForumData("DELEGATED_AUTHORITY_4_FOGS_MANDATE".equals(meetingRule))
+then
+	$data.setTotalNumberOfApprovalsRequired(0);
+
+	$data.setRuleExecuted(true);
+	displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+// Delegated Authority 4 INFRASTRUCTURE FINANCE
+rule "MeetingTypeDelegatedAuthority4InfrastructureFinanceMandate"
+activation-group "all"
+salience 99999
+when
+	$data: ApprovalForumData("DELEGATED_AUTHORITY_4_INFRA_FIN_MANDATE".equals(meetingRule))
+then
+	$data.setTotalNumberOfApprovalsRequired(0);
+
+	$data.setRuleExecuted(true);
+	displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+// Delegated Authority 4 RESOURCES FINANCE
+rule "MeetingTypeDelegatedAuthority4ResourcesFinanceMandate"
+activation-group "all"
+salience 99999
+when
+	$data: ApprovalForumData("DELEGATED_AUTHORITY_4_RESOURCES_MANDATE".equals(meetingRule))
+then
+	$data.setTotalNumberOfApprovalsRequired(0);
+
+	$data.setRuleExecuted(true);
+	displayRuleTriggered(drools);
+end
+//---------------------------------------------------------------------------------------------------------------------
+
+//Ashburton Investment Credit Committee
+rule "MeetingTypeAshburtonInvestmentCreditCommitteeMandate"
+activation-group "all"
+salience 99999
+    when
+		$data: ApprovalForumData("ASHBURTON_INVESTMENT_CREDIT_COMMITTEE_MANDATE".equals(meetingRule))
+	then
+		$data.setTotalNumberOfApprovalsRequired(5);
+		$data.addListModelNextRank("Non Executive Chairperson AICC", 1, 1); //min max
+        $data.addListModelNextRank("Non Executive Members AICC", 3, 3); //min max
+        $data.addListModelNextRank("Credit Research AICC", 0, 1); //min max
+        $data.addListModelNextRank("Portfolio Managers AICC", 0, 1); //min max
+
+		$data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+// ---------------------------------------------------------------------------------------------------------------------
+//Ashburton Investment Delegated Mandate Credit Committee
+rule "MeetingTypeAshburtonInvestmentDelegatedMandateCreditCommittee"
+activation-group "all"
+salience 99999
+    when
+		$data: ApprovalForumData("ASHBURTON_INVESTMENT_DELEGATED_MANDATE_CREDIT_COMMITTEE".equals(meetingRule))
+	then
+		$data.setTotalNumberOfApprovalsRequired(3);
+		$data.addListModelNextRank("AICC Approvers AIDMCC", 2, 2); //min max
+        $data.addListModelNextRank("Head of Credit AIDMCC", 0, 1); //min max
+        $data.addListModelNextRank("Head of Credit Research AICC", 0, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+//------------------------Lumos Broader Africa-changes-----------------------------------------------------------------------------------------------
+//1.Zambia Credit Analyst SME / Junior Credit Manager
+rule "MeetingTypeZambiaCreditAnalystSMEOrJuniorCreditManagerMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("ZAMBIA_CREDIT_ANALYST_SME_OR_JUNIOR_CREDIT_MANAGER_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Zambia Credit Analyst SME", 0, 1); //min max
+        $data.addListModelNextRank("Zambia Junior Credit Manager", 0, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//2. Zambia Credit Manager SME & Growth
+rule "MeetingTypeZambiaCreditManagerSMEAndGrowthMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("ZAMBIA_CREDIT_MANAGER_SME_AND_GROWTH_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Zambia Credit Manager SME and Growth", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//3. Zambia Credit Manager Business and Commercial
+rule "MeetingTypeZambiaCreditManagerBusinessAndCommercialMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("ZAMBIA_CREDIT_MANAGER_BUSINESS_AND_COMMERCIAL_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Zambia Credit Manager Business and Commercial", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+
+//4. Zambia Senior Credit Manager Business and Commercial
+rule "MeetingTypeZambiaSeniorCreditManagerBusinessAndCommercialMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("ZAMBIA_SENIOR_CREDIT_MANAGER_BUSINESS_AND_COMMERCIAL_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Zambia Senior Credit Manager Business and Commercial", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//5 Zambia Senior Credit Manager CCIB Credit Origination
+rule "MeetingTypeZambiaSeniorCreditManagerCCIBCreditOriginationMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("ZAMBIA_SENIOR_CREDIT_MANAGER_CCIB_CREDIT_ORIGINATION_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Zambia Senior Credit Manager CCIB Credit Origination", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+
+//6 Zambia Head of Credit / Director of Credit
+rule "MeetingTypeZambiaHeadOfCreditOrDirectorOfCreditMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("ZAMBIA_HEAD_OF_CREDIT_OR_DIRECTOR_OF_CREDIT_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Zambia Head of Credit", 0, 1); //min max
+		$data.addListModelNextRank("Zambia Director of Credit", 0, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//1 Namibia Credit Manager I
+rule "MeetingTypeNamibiaCreditManager1Mandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("NAMBIA_CREDIT_MANAGER1_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Namibia Credit Manager I", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//2 Namibia Credit Manager II
+rule "MeetingTypeNamibiaCreditManager2Mandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("NAMBIA_CREDIT_MANAGER2_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Namibia Credit Manager II", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//3 Namibia Senior Credit Manager I
+rule "MeetingTypeNamibiaSeniorCreditManager1Mandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("NAMBIA_SENIOR_CREDIT_MANAGER1_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Namibia Senior Credit Manager I", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//1 Eswatini  Credit Analyst SME / Junior Credit Manager
+rule "MeetingTypeEswatiniSeniorCreditManager1Mandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("ESWATINI_CREDIT_ANALYST_SME_OR_JUNIOR_CREDIT_MANAGER_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Eswatini Credit Analyst SME", 0, 1); //min max
+		$data.addListModelNextRank("Eswatini Junior Credit Manager", 0, 1); //min max
+
+		$data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//2.Eswatini  Credit Analyst - Corporate & Commercial
+rule "MeetingTypeEswatiniCreditAnalystCorporateAndCommercialMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("ESWATINI_CREDIT_ANALYST_CORPORATE_AND_COMMERCIAL_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Eswatini Credit Analyst - Corporate and Commercial", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//3. Eswatini  Credit Manager Commercial and Corporate
+rule "MeetingTypeEswatiniCreditManagerCommercialAndCorporateMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("ESWATINI_CREDIT_MANAGER_COMMERCIAL_AND_CORPORATE_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Eswatini Credit Manager Commercial and Corporate", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//4. Eswatini  Credit Manager SME & Retail
+rule "MeetingTypeEswatiniCreditManagerSMEAndRetailMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("ESWATINI_CREDIT_MANAGER_SME_AND_RETAIL_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Eswatini Credit Manager SME and Retail", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+
+//5. Eswatini  1 x Credit Analyst & 1 x Credit Manager
+rule "MeetingTypeEswatini1CreditAnalystAnd1CreditManagerMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("ESWATINI_1_CREDIT_ANALYST_AND_1_CREDIT_MANAGER_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(2);
+        $data.addListModelNextRank("Eswatini Credit Analyst", 1, 1); //min max
+		$data.addListModelNextRank("Eswatini Credit Manager", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//6.Eswatini  Head of SME & Retail
+rule "MeetingTypeEswatiniHeadOfSMEAndRetailMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("ESWATINI_HEAD_OF_SME_AND_RETAIL_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Eswatini Head of SME and Retail", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//7.Eswatini 1 x Head of Credit Originatior OR 2 x Credit Managers
+rule "MeetingTypeEswatini1HeadOfCreditOriginatorOr2CreditManagersMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("ESWATINI_1_HEAD_OF_CREDIT_ORIGINATOR_OR_2_CREDIT_MANAGERS_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Eswatini Head of Credit Origination", 1, 1); //min max
+
+		$data.addNewModel();
+        $data.addTotalNumberOfApprovalsRequired(2);
+        $data.addListModelNextRank("Eswatini Credit Manager", 2, 2); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//8. Eswatini 1 x Credit Manager & 1 x Head of Credit Origination
+rule "MeetingTypeEswatini1CreditManagerAnd1HeadofCreditOriginationMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("ESWATINI_1_CREDIT_MANAGER_AND_1_HEAD_OF_CREDIT_ORIGINATION_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(2);
+        $data.addListModelNextRank("Eswatini Credit Manager", 1, 1); //min max
+		$data.addListModelNextRank("Eswatini Head of Credit Origination", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//9. Eswatini Commercial Credit Forum
+rule "MeetingTypeEswatiniCommercialCreditForumMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("ESWATINI_COMMERCIAL_CREDIT_FORUM_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(3);
+        $data.addListModelNextRank("Eswatini Head of Credit Origination", 0, 1); //min max
+		$data.addListModelNextRank("Eswatini Head of Commercial", 0, 1); //min max
+		$data.addListModelNextRank("Eswatini Credit Manager", 1, 1); //min max
+
+		$data.addNewModel();
+        $data.addTotalNumberOfApprovalsRequired(3);
+        $data.addListModelNextRank("Eswatini Head of Credit", 0, 1); //min max
+		$data.addListModelNextRank("Eswatini Head of SME and Retail", 0, 1); //min max
+		$data.addListModelNextRank("Eswatini Credit Manager", 1, 1); //min max
+
+		$data.addNewModel();
+        $data.addTotalNumberOfApprovalsRequired(3);
+        $data.addListModelNextRank("Eswatini Head of Credit Origination", 0, 1); //min max
+		$data.addListModelNextRank("Eswatini Head of SME and Retail", 0, 1); //min max
+		$data.addListModelNextRank("Eswatini Credit Manager", 1, 1); //min max
+
+		$data.addNewModel();
+        $data.addTotalNumberOfApprovalsRequired(3);
+        $data.addListModelNextRank("Eswatini Head of Credit", 0, 1); //min max
+		$data.addListModelNextRank("Eswatini Head of Commercial", 0, 1); //min max
+		$data.addListModelNextRank("Eswatini Credit Manager", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//10. Eswatini Head of Credit / Director of Credit
+rule "MeetingTypeEswatiniHeadofCreditOrDirectorofCreditMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("ESWATINI_HEAD_OF_CREDIT_OR_DIRECTOR_OF_CREDIT_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Eswatini Head of Credit", 0, 1); //min max
+		$data.addListModelNextRank("Eswatini Director of Credit", 0, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//1 Botswana Credit Manager I
+rule "MeetingTypeBotswanaCreditManager1Mandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("BOTSWANA_CREDIT_MANAGER1_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Botswana Credit Manager I", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//2 Botswana Senior Credit Manager I
+rule "MeetingTypeBotswanaSeniorCreditManager1Mandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("BOTSWANA_SENIOR_CREDIT_MANAGER1_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Botswana Senior Credit Manager I", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//3 Botswana Senior Credit Manager II
+rule "MeetingTypeBotswanaSeniorCreditManager2Mandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("BOTSWANA_SENIOR_CREDIT_MANAGER2_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Botswana Senior Credit Manager II", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//4 Botswana Senior Credit Manager III
+rule "MeetingTypeBotswanaSeniorCreditManager3Mandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("BOTSWANA_SENIOR_CREDIT_MANAGER3_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Botswana Senior Credit Manager III", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//5  Botswana Head of Credit - WesBank & SME
+rule "MeetingTypeBotswanaHeadofCreditWesBankAndSMEMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("BOTSWANA_HEAD_OF_CREDIT_WESBANK_AND_SME_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Botswana Head of Credit - WesBank and SME", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//6.Botswana Deputy Director Credit
+rule "MeetingTypeBotswanaDeputyDirectorCreditMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("BOTSWANA_DEPUTY_DIRECTOR_CREDIT_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Botswana Deputy Director Credit", 1, 1); //min max
+
+        $data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//7.Botswana Head of Credit / Director of Credit
+rule "MeetingTypeBotswanaHeadofCreditOrDirectorofCreditMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("BOTSWANA_HEAD_OF_CREDIT_OR_DIRECTOR_OF_CREDIT_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Botswana Head of Credit", 0, 1); //min max
+		$data.addListModelNextRank("Botswana Director of Credit", 0, 1); //min max
+
+		$data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//1.Lesotho Credit Analyst (SME, Growth, Business, Commercial & Corporate)
+rule "MeetingTypeLesothoCreditAnalystofSMEGrowthBuinessCommercialAndCorporateMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("LESOTHO_CREDIT_ANALYST_OF_SME_GROWTH_BUSINESS_COMMERCIAL_AND_CORPORATE_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Lesotho Credit Analyst (SME, Growth, Business, Commercial and Corporate)", 1, 1); //min max
+
+		$data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//2.Lesotho Credit Manager (SME, Growth, Business, Commercial & Corporate)
+rule "MeetingTypeLesothoCreditManagerofSMEGrowthBuinessCommercialAndCorporateMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("LESOTHO_CREDIT_MANAGER_OF_SME_GROWTH_BUSINESS_COMMERCIAL_AND_CORPORATE_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Lesotho Credit Manager (SME, Growth, Business, Commercial and Corporate)", 1, 1); //min max
+
+		$data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end
+
+//3.Lesotho Head of Credit / Director of Credit
+rule "MeetingTypeLesothoHeadofCreditOrDirectorofCreditMandate"
+activation-group "all"
+salience 99999
+    when
+        $data: ApprovalForumData("LESOTHO_HEAD_OF_CREDIT_OR_DIRECTOR_OF_CREDIT_MANDATE".equals(meetingRule))
+    then
+        $data.setTotalNumberOfApprovalsRequired(1);
+        $data.addListModelNextRank("Lesotho Head of Credit", 0, 1); //min max
+		$data.addListModelNextRank("Lesotho Director of Credit", 0, 1); //min max
+
+		$data.setRuleExecuted(true);
+        displayRuleTriggered(drools);
+end

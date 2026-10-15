@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<persistence version="2.1"
+             xmlns="http://xmlns.jcp.org/xml/ns/persistence"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/persistence http://xmlns.jcp.org/xml/ns/persistence/persistence_2_1.xsd">
+
+    <persistence-unit name="ApprovalForumPersistence" transaction-type="RESOURCE_LOCAL">
+        <provider>org.hibernate.jpa.HibernatePersistenceProvider</provider>
+        <non-jta-data-source>java:comp/env/jdbc/ApprovalForumDS</non-jta-data-source>
+        <mapping-file>META-INF/orm.xml</mapping-file>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumAduActiveDirectoryUserEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumAfadgApprovalForumActiveDirectoryGroupEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumAfgApprovalForumGroupEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumAflmmApprovalForumListManagementMappingEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumPPropertiesEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumWfaWorkflowApprovalsEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumWfcdWorkflowCounterpartyDetailEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumWfWorkflowEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumRiRevisionInfoEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumRtRequestTypeEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumWfqdWorkflowQuorumDataEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumWfadWorkflowApplicationDataEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumWffiWorkflowFacilityInformationEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumWfdaWorkflowDataEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumWiprrWipRulesResponseEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumWipurWipUsersResponseEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumWfcWorkflowChatEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumErExternalRequestsEntity</class>
+        <class>za.co.rmb.approvalforum.model.ApplicationDocumentListModel</class>
+        <class>za.co.rmb.approvalforum.model.ApplicationDocumentModel</class>
+        <class>za.co.rmb.approvalforum.model.ActiveDirectoryUser</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumDsrDocStashRequestsEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumWfdWorkflowDocumentEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumWfqWorkflowQuorumEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumMrMailRequestsEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumMrdaMailRequestsDailyAllEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumUpUserPreferenceEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumMqrnmMeetingQuorumRulesNameMappingEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumMqrMeetingQuorumRulesEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumWfflWorkflowFundLimitInformationEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumAgcAgendaCommitteeEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumAgmAgendaMeetingEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumAgiAgendaItemEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumAgidAgendaItemDocumentEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumAgpmAgendaPostMeetingEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumAgnAgendaNotificationEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumAgwAgendaWorkflowActionEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumAgpAgendaParticipantEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumAgcaAgendaConditionEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumAgmrAgendaMeetingRecordEntity</class>
+        <properties>
+            <property name="org.hibernate.envers.audit_table_prefix"
+                      value="A_"/>
+            <property name="org.hibernate.envers.audit_table_suffix"
+                      value=""/>
+            <property name="org.hibernate.envers.audit_strategy"
+                      value="org.hibernate.envers.strategy.ValidityAuditStrategy"/>
+            <property name="org.hibernate.envers.store_data_at_delete" value="true"/>
+            <property name="hibernate.show_sql" value="false"/>
+            <property name="hibernate.dialect" value="org.hibernate.dialect.SQLServer2008Dialect"/>
+            <property name="toplink.jdbc.url"
+                      value="jdbc:sqlserver://rmb-rbvdvsqgen7.fnb.co.za:4071;database=wc_approvalforum"/>
+            <property name="toplink.jdbc.driver" value="com.microsoft.sqlserver.jdbc.SQLServerDriver"/>
+            <property name="hibernate.connection.url"
+                      value="jdbc:sqlserver://rmb-rbvutsqgen7.rmb.co.za:4071;database=wc_approvalforum"/>
+            <property name="hibernate.connection.driver_class" value="com.microsoft.sqlserver.jdbc.SQLServerDriver"/>
+            <property name="openjpa.ConnectionURL"
+                      value="jdbc:sqlserver://rmb-rbvutsqgen7.rmb.co.za:4071;database=wc_approvalforum"/>
+            <property name="openjpa.ConnectionDriverName" value="com.microsoft.sqlserver.jdbc.SQLServerDriver"/>
+            <property name="eclipselink.jdbc.url"
+                      value="jdbc:sqlserver://rmb-rbvutsqgen7.rmb.co.za:4071;database=wc_approvalforum"/>
+            <property name="eclipselink.jdbc.driver" value="com.microsoft.sqlserver.jdbc.SQLServerDriver"/>
+            <property name="eclipselink.logging.level" value="FINE"/>
+            <property name="openjpa.Log" value="DefaultLevel=WARN,Runtime=INFO,Tool=INFO,SQL=TRACE"/>
+            <property name="eclipselink.logging.parameters" value="true"/>
+        </properties>
+    </persistence-unit>
+
+</persistence>

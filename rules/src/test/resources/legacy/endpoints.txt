@@ -1,0 +1,3 @@
+GET /git
+POST /approvalForumDrools/approvalForum
+POST /approvalForumDrools/rules/reload

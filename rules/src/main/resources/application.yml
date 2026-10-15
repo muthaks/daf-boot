@@ -1,0 +1,52 @@
+# DAF rules service. The rules come from R_Rules (loaded at startup, reloaded by /rules/reload); the JWT
+# settings are the legacy classpath application.properties, overridable by environment variable.
+spring:
+  application:
+    name: daf-rules
+  main:
+    allow-circular-references: true
+  datasource:
+    # The legacy ApprovalForumRulesDS used the same variables as the API's datasource
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: ${DB_DRIVER:com.microsoft.sqlserver.jdbc.SQLServerDriver}
+    hikari:
+      data-source-properties:
+        encrypt: ${DB_ENCRYPT:false}
+  flyway:
+    enabled: false
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+        implicit-strategy: org.hibernate.boot.model.naming.ImplicitNamingStrategyJpaCompliantImpl
+    properties:
+      hibernate.show_sql: false
+      hibernate.dialect: za.co.rmb.credit.daf.support.SqlServer2008Dialect
+  jersey:
+    type: servlet
+
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /approvalforumdrools
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+# The legacy Tomcat logback.xml levels (same variables); logback-custom.xml set org.quartz.core to WARN
+logging:
+  level:
+    root: ${DEFAULT_LOG_LEVEL:INFO}
+    org.apache.catalina: ${TOMCAT_LOG_LEVEL:INFO}
+    org.apache.coyote: ${TOMCAT_LOG_LEVEL:INFO}
+    org.hibernate: ${HIBERNATE_LOG_LEVEL:WARN}

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<persistence version="2.1"
+             xmlns="http://xmlns.jcp.org/xml/ns/persistence"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/persistence http://xmlns.jcp.org/xml/ns/persistence/persistence_2_1.xsd">
+
+    <persistence-unit name="ApprovalDroolsForumPersistence" transaction-type="RESOURCE_LOCAL">
+        <provider>org.hibernate.jpa.HibernatePersistenceProvider</provider>
+        <non-jta-data-source>java:comp/env/jdbc/ApprovalForumRulesDS</non-jta-data-source>
+        <mapping-file>META-INF/orm.xml</mapping-file>
+        <class>za.co.rmb.approvalforumdrools.data.entity.ApprovalForumRRulesEntity</class>
+        <properties>
+            <property name="hibernate.show_sql" value="false"/>
+            <property name="hibernate.dialect" value="org.hibernate.dialect.SQLServer2008Dialect"/>
+            <property name="toplink.jdbc.url"
+                      value="jdbc:sqlserver://rmb-rbvdvsqgen7.fnb.co.za:4071;database=wc_approvalforum"/>
+            <property name="toplink.jdbc.driver" value="com.microsoft.sqlserver.jdbc.SQLServerDriver"/>
+            <property name="hibernate.connection.url"
+                      value="jdbc:sqlserver://rmb-rbvutsqgen7.rmb.co.za:4071;database=wc_approvalforum"/>
+            <property name="hibernate.connection.driver_class" value="com.microsoft.sqlserver.jdbc.SQLServerDriver"/>
+            <property name="openjpa.ConnectionURL"
+                      value="jdbc:sqlserver://rmb-rbvutsqgen7.rmb.co.za:4071;database=wc_approvalforum"/>
+            <property name="openjpa.ConnectionDriverName" value="com.microsoft.sqlserver.jdbc.SQLServerDriver"/>
+            <property name="eclipselink.jdbc.url"
+                      value="jdbc:sqlserver://rmb-rbvutsqgen7.rmb.co.za:4071;database=wc_approvalforum"/>
+            <property name="eclipselink.jdbc.driver" value="com.microsoft.sqlserver.jdbc.SQLServerDriver"/>
+        </properties>
+    </persistence-unit>
+
+</persistence>

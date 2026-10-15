@@ -1,0 +1,14 @@
+# Spring Boot 4 settings that keep the legacy (Spring Boot 2.1) behaviour; the legacy application.properties is
+# copied unchanged next to this file.
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  web:
+    error:
+      # Boot 2.1 put the exception message in the JSON error body; Boot 2.3+ leaves it out by default
+      include-message: always
+  jackson:
+    # Boot 2.1 / Jackson 2 wrote the error body's timestamp as 2026-10-13T09:30:47.982+0000 (UTC)
+    date-format: "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+    time-zone: UTC

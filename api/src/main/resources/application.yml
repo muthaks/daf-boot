@@ -1,0 +1,67 @@
+# DAF API. Application settings are the legacy ones: af_settings (AF_* environment variables, defaults in
+# ApprovalForumWebResourcesModule) and the JWT settings (classpath application.properties, overridable by
+# environment variable, read by AuthenticationTokenSettingsImpl). This file only configures the platform.
+spring:
+  application:
+    name: daf-api
+  config:
+    import: optional:file:./config/env.properties
+  main:
+    # Guice resolved the legacy services' mutual @Inject fields (e.g. external service <-> service); Spring must too
+    allow-circular-references: true
+  datasource:
+    # Same variables as the legacy container (app-start.sh passed them to the Tomcat JNDI datasource)
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: ${DB_DRIVER:com.microsoft.sqlserver.jdbc.SQLServerDriver}
+    hikari:
+      data-source-properties:
+        # Legacy ran mssql-jdbc 6.2, which did not encrypt by default; drivers 10+ do. Same connection as before.
+        encrypt: ${DB_ENCRYPT:false}
+  flyway:
+    # The legacy FlywayMigrationInitializer runs the migrations, with its own settings (baseline 1)
+    enabled: false
+  jpa:
+    # Guice-persist's PersistFilter is reproduced for Jersey by PersistenceConfig
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+      # Hibernate's own naming, as in the legacy persistence unit (Spring Boot's default would rename columns)
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+        implicit-strategy: org.hibernate.boot.model.naming.ImplicitNamingStrategyJpaCompliantImpl
+    properties:
+      # legacy persistence.xml
+      org.hibernate.envers.audit_table_prefix: A_
+      org.hibernate.envers.audit_table_suffix: ""
+      org.hibernate.envers.audit_strategy: org.hibernate.envers.strategy.internal.ValidityAuditStrategy
+      org.hibernate.envers.store_data_at_delete: true
+      hibernate.show_sql: false
+      hibernate.dialect: za.co.rmb.credit.daf.support.SqlServer2008Dialect
+  jersey:
+    type: servlet
+
+server:
+  port: ${SERVER_PORT:8080}
+  # legacy war name; the JAX-RS application is under /api (JerseyConfig), so URLs stay /approvalforum/api/...
+  servlet:
+    context-path: /approvalforum
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+# The legacy Tomcat logback.xml levels (same variables); logback-custom.xml set org.quartz.core to WARN
+logging:
+  level:
+    root: ${DEFAULT_LOG_LEVEL:INFO}
+    org.apache.catalina: ${TOMCAT_LOG_LEVEL:INFO}
+    org.apache.coyote: ${TOMCAT_LOG_LEVEL:INFO}
+    org.hibernate: ${HIBERNATE_LOG_LEVEL:WARN}
+    org.quartz.core: WARN

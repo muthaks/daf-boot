@@ -52,16 +52,24 @@ MANIFEST=""; STACK=""; TARGET=""; BUILD_NUMBER="latest"; ONLY=""
 AD_USER="${SERVER_USER:-}"
 FORCE_ENV=0; NO_RUN=0; DRY_RUN=0; VERBOSE=0; ASSUME_YES=0; EXEC_CMD=""
 POSITIONAL=()
+# An option that takes a value, given without one (or followed by another option), says what it needs
+# instead of failing on an unbound variable.
+need_value() {
+  if [[ -z "$2" || "$2" == -* ]]; then
+    echo "ERROR: $1 needs a value: $3" >&2
+    exit 1
+  fi
+}
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --release) MANIFEST="$2"; shift 2 ;;
-    --only) ONLY="$2"; shift 2 ;;
-    -b) BUILD_NUMBER="$2"; shift 2 ;;
-    -u) AD_USER="$2"; shift 2 ;;
+    --release) need_value "$1" "${2:-}" "--release <manifest>, e.g. --release dev"; MANIFEST="$2"; shift 2 ;;
+    --only) need_value "$1" "${2:-}" "--only <stack,stack>, e.g. --only daf"; ONLY="$2"; shift 2 ;;
+    -b) need_value "$1" "${2:-}" "-b <build number>, e.g. -b 42"; BUILD_NUMBER="$2"; shift 2 ;;
+    -u) need_value "$1" "${2:-}" "-u <your AD user name>, e.g. -u khg (or export SERVER_USER)"; AD_USER="$2"; shift 2 ;;
     --force-env) FORCE_ENV=1; shift ;;
     --yes) ASSUME_YES=1; shift ;;
     --no-run) NO_RUN=1; shift ;;
-    --exec) EXEC_CMD="$2"; shift 2 ;;
+    --exec) need_value "$1" "${2:-}" "--exec \"<command>\""; EXEC_CMD="$2"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
     --verbose) VERBOSE=1; shift ;;
     -h|--help) usage 0 ;;

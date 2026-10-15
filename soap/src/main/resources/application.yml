@@ -1,0 +1,6 @@
+# Spring Boot 4 settings that keep the legacy behaviour; the legacy application.properties (empty) is copied
+# unchanged next to this file. Legacy ran as approvalforum-soap.war, so the context path is the war name.
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /approvalforum-soap

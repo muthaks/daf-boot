@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.0.3</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>za.co.rmb.credit</groupId>
+    <artifactId>daf-api</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <name>DAF API</name>
+    <description>Delegated Authority Forum API: the legacy approvalforum JAX-RS application on Java 25, Spring Boot 4 and Jersey 4</description>
+
+    <properties>
+        <java.version>25</java.version>
+        <legacy-libs.version>1.0.0-SNAPSHOT</legacy-libs.version>
+        <!-- Versions the legacy DAF runs, kept where the library still works on Java 25 -->
+        <jjwt.version>0.11.5</jjwt.version>
+        <java-jwt.version>3.7.0</java-jwt.version>
+        <swagger-annotations.version>1.5.20</swagger-annotations.version>
+        <socket.io-client.version>1.0.0</socket.io-client.version>
+        <hashids.version>1.0.3</hashids.version>
+        <commons-text.version>1.8</commons-text.version>
+        <commons-io.version>2.16.1</commons-io.version>
+        <guava.version>33.4.0-jre</guava.version>
+        <lombok.version>1.18.44</lombok.version>
+    </properties>
+
+    <!-- Internal Nexus repositories - no external internet access on the build agents -->
+    <repositories>
+        <repository>
+            <id>rmb-nexus</id>
+            <name>RMB Nexus Repository</name>
+            <url>https://crsk-nexus.rmb.co.za/repository/maven-public/</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>true</enabled></snapshots>
+        </repository>
+    </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>rmb-nexus-plugins</id>
+            <name>RMB Nexus Plugin Repository</name>
+            <url>https://crsk-nexus.rmb.co.za/repository/maven-public/</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>true</enabled></snapshots>
+        </pluginRepository>
+    </pluginRepositories>
+
+    <dependencies>
+        <!-- JAX-RS on Jersey 4 (the legacy resources run as they are); Jackson 2 JSON as in legacy -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jersey</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.jersey.media</groupId>
+            <artifactId>jersey-media-multipart</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.jersey.security</groupId>
+            <artifactId>oauth2-client</artifactId>
+        </dependency>
+        <!-- RESTEasy's JSON provider read JAXB annotations as well as Jackson's; the model classes
+             depend on that for their property names -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-jakarta-xmlbind-annotations</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.xml.bind</groupId>
+            <artifactId>jakarta.xml.bind-api</artifactId>
+        </dependency>
+        <!-- One legacy class imports jakarta.xml.ws.Response (unused) -->
+        <dependency>
+            <groupId>jakarta.xml.ws</groupId>
+            <artifactId>jakarta.xml.ws-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Persistence: the legacy entities and repositories on Hibernate 7, Envers audit, Flyway -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-envers</artifactId>
+        </dependency>
+        <!-- Legacy Hibernate 5 / RESTEasy / Guice behaviour shared with daf-rules (dialect, JSON, procedures, proxies) -->
+        <dependency>
+            <groupId>za.co.rmb.credit</groupId>
+            <artifactId>daf-support</artifactId>
+            <version>${legacy-libs.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-sqlserver</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.microsoft.sqlserver</groupId>
+            <artifactId>mssql-jdbc</artifactId>
+        </dependency>
+
+        <!-- Scheduled jobs -->
+        <dependency>
+            <groupId>org.quartz-scheduler</groupId>
+            <artifactId>quartz</artifactId>
+        </dependency>
+
+        <!-- Shared RMB libraries, the exact legacy versions rewritten to jakarta.* (legacy-libs) -->
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>counterparty-client</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>application-client</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>facility-client</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>referencedata-client</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>rest-client</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>docstash-client</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>docstash-rest-client</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>authservice-client</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>mailservice-client</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>listmanagement-client</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>listmanagement-rest-client</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>approvalforum-model</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>authservice-model</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>mailservice-model</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>referencedata-model</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>docstash-model</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>docstashrules-model</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>listmanagement-model</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>approvalforumrules-client</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>approvalforumrules-rest-client</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>approvalforumrules-model</classifier></dependency>
+        <dependency><groupId>za.co.rmb.credit</groupId><artifactId>daf-legacy-libs</artifactId><version>${legacy-libs.version}</version><classifier>jaxb2-basics-runtime</classifier></dependency>
+        <!-- Not JAX-RS, used as published: VersionUtil for the Credit Data clients -->
+        <dependency>
+            <groupId>za.co.rmb.credit</groupId>
+            <artifactId>util</artifactId>
+            <version>2.4.0</version>
+            <exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions>
+        </dependency>
+
+        <!-- Libraries the legacy code uses directly -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>${jjwt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.auth0</groupId>
+            <artifactId>java-jwt</artifactId>
+            <version>${java-jwt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.swagger</groupId>
+            <artifactId>swagger-annotations</artifactId>
+            <version>${swagger-annotations.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.socket</groupId>
+            <artifactId>socket.io-client</artifactId>
+            <version>${socket.io-client.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.hashids</groupId>
+            <artifactId>hashids</artifactId>
+            <version>${hashids.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-text</artifactId>
+            <version>${commons-text.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>${commons-io.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>${guava.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Compile only, never packaged: the DocStash client interface declares an overload taking RESTEasy's
+             MultipartFormDataInput, which DAF never calls; javac needs the type to resolve the overloads -->
+        <dependency>
+            <groupId>org.jboss.resteasy</groupId>
+            <artifactId>resteasy-multipart-provider</artifactId>
+            <version>3.6.0.Final</version>
+            <scope>provided</scope>
+            <exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jersey-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>daf-api</finalName>
+        <plugins>
+            <!-- The Spring replacements for the few Guice-bound legacy classes keep the legacy package -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>legacy-overrides</id>
+                        <phase>generate-sources</phase>
+                        <goals><goal>add-source</goal></goals>
+                        <configuration>
+                            <sources><source>src/legacy-overrides/java</source></sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!-- JDK 23+ no longer runs annotation processors found on the classpath -->
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                    <!-- Spring reads constructor parameter names for @Inject constructors -->
+                    <parameters>true</parameters>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

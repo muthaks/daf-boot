@@ -1,13 +1,63 @@
 services:
-  daf-remote:
-    image: ${DOCKER_REGISTRY}/credit/daf-boot/daf-remote:${BUILD_NUMBER:-latest}
-    container_name: daf-remote
+  # Every /approvalforum/api endpoint and the Quartz jobs (the legacy approvalforum war)
+  daf-api:
+    image: ${DOCKER_REGISTRY}/credit/daf-boot/daf-api:${BUILD_NUMBER:-latest}
+    container_name: daf-api
+    dns:
+      - ${DNS_SERVER}
+    env_file:
+      - env.properties
+    environment:
+      # Legacy ran the API, the rules and the SOAP wars in one Tomcat (localhost:8080); they are containers now
+      AF_BASE: http://127.0.0.1:8080/approvalforum/api
+      AF_RULESSERVICE_BASE: http://daf-rules:8080/approvalforumdrools/api/
+      AF_DOCGENSERVICE_BASE: http://daf-docgen:8080/docgen
+    ports:
+      - "${API_PORT:-14736}:8080"
+    restart: unless-stopped
+    networks:
+      - daf_net
+
+  # The Drools rules (the legacy approvalforumdrools war)
+  daf-rules:
+    image: ${DOCKER_REGISTRY}/credit/daf-boot/daf-rules:${BUILD_NUMBER:-latest}
+    container_name: daf-rules
     dns:
       - ${DNS_SERVER}
     env_file:
       - env.properties
     ports:
-      - "${REMOTE_PORT:-14708}:80"
+      - "${RULES_PORT:-14737}:8080"
+    restart: unless-stopped
+    networks:
+      - daf_net
+
+  # PDF agendas and minutes (the legacy approvalforum-docgen)
+  daf-docgen:
+    image: ${DOCKER_REGISTRY}/credit/daf-boot/daf-docgen:${BUILD_NUMBER:-latest}
+    container_name: daf-docgen
+    dns:
+      - ${DNS_SERVER}
+    env_file:
+      - env.properties
+    ports:
+      - "${DOCGEN_PORT:-14738}:8080"
+    restart: unless-stopped
+    networks:
+      - daf_net
+
+  # External create/cancel requests over SOAP (the legacy approvalforum-soap war), forwarded to daf-api
+  daf-soap:
+    image: ${DOCKER_REGISTRY}/credit/daf-boot/daf-soap:${BUILD_NUMBER:-latest}
+    container_name: daf-soap
+    dns:
+      - ${DNS_SERVER}
+    env_file:
+      - env.properties
+    environment:
+      AF_BASE: http://daf-api:8080/approvalforum/api/
+    ports:
+      - "${SOAP_PORT:-14739}:8080"
     restart: unless-stopped
     networks:
       - daf_net
