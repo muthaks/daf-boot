@@ -19,7 +19,11 @@ import za.co.rmb.approvalforum.model.agenda.AgendaMeetingDTO;
 import za.co.rmb.approvalforum.model.agenda.AgendaMeetingRecordDTO;
 import za.co.rmb.approvalforum.model.agenda.AgendaParticipantDTO;
 import za.co.rmb.approvalforum.model.agenda.AgendaPostMeetingDTO;
+import za.co.rmb.approvalforum.model.agenda.AgendaBookingDraftDTO;
 import za.co.rmb.approvalforum.model.agenda.BookAgendaItemRequest;
+import za.co.rmb.approvalforum.model.agenda.MoveAgendaItemRequest;
+import za.co.rmb.approvalforum.model.agenda.QuorumExceptionRequest;
+import za.co.rmb.approvalforum.model.agenda.ReassignAgendaReviewerRequest;
 import za.co.rmb.approvalforum.service.AgendaAccess;
 import za.co.rmb.approvalforum.model.CounterpartyResponseDTO;
 import za.co.rmb.approvalforum.service.AgendaService;
@@ -298,7 +302,7 @@ public class ApprovalForumAgendaResource {
         }
     }
 
-    // ---- BRS alignment: committee & calendar administration (BR-001, BR-002) - Secretary only ----
+    // ---- BRS alignment: committee & calendar administration (BR-001, BR-002) - secretary or chair ----
 
     @GET
     @Path("/committees/all")
@@ -307,7 +311,7 @@ public class ApprovalForumAgendaResource {
     public Response getAllCommittees() {
         logger.info("getAllCommittees()");
         tokenValidation(context);
-        Response denied = forbiddenUnless("administer committees", ROLE_SECRETARY);
+        Response denied = forbiddenUnless("administer committees", ROLE_SECRETARY, ROLE_CHAIRPERSON);
         if (denied != null) return denied;
         return Response.ok(agendaService.getAllCommittees()).build();
     }
@@ -317,11 +321,11 @@ public class ApprovalForumAgendaResource {
     @Produces("application/json")
     @Consumes("application/json")
     @Transactional
-    @ApiOperation(value = "Create a committee / mandate level (Secretary only)", authorizations = @Authorization(value = "Bearer"))
+    @ApiOperation(value = "Create a committee / mandate level (secretary/chair only)", authorizations = @Authorization(value = "Bearer"))
     public Response createCommittee(AgendaCommitteeDTO committee) {
         logger.info("createCommittee({})", committee.getCommitteeName());
         tokenValidation(context);
-        Response denied = forbiddenUnless("create committees", ROLE_SECRETARY);
+        Response denied = forbiddenUnless("create committees", ROLE_SECRETARY, ROLE_CHAIRPERSON);
         if (denied != null) return denied;
         try {
             return Response.ok(agendaService.createCommittee(committee, userName())).build();
@@ -334,11 +338,11 @@ public class ApprovalForumAgendaResource {
     @Path("/committees/{agcId}/deactivate")
     @Produces("application/json")
     @Transactional
-    @ApiOperation(value = "Deactivate a committee (Secretary only)", authorizations = @Authorization(value = "Bearer"))
+    @ApiOperation(value = "Deactivate a committee (secretary/chair only)", authorizations = @Authorization(value = "Bearer"))
     public Response deactivateCommittee(@PathParam("agcId") int agcId) {
         logger.info("deactivateCommittee({})", agcId);
         tokenValidation(context);
-        Response denied = forbiddenUnless("deactivate committees", ROLE_SECRETARY);
+        Response denied = forbiddenUnless("deactivate committees", ROLE_SECRETARY, ROLE_CHAIRPERSON);
         if (denied != null) return denied;
         return Response.ok(agendaService.deactivateCommittee(agcId, userName())).build();
     }
@@ -348,11 +352,11 @@ public class ApprovalForumAgendaResource {
     @Produces("application/json")
     @Consumes("application/json")
     @Transactional
-    @ApiOperation(value = "Schedule a committee meeting (Secretary only)", authorizations = @Authorization(value = "Bearer"))
+    @ApiOperation(value = "Schedule a committee meeting (secretary/chair only)", authorizations = @Authorization(value = "Bearer"))
     public Response createMeeting(AgendaMeetingDTO meeting) {
         logger.info("createMeeting(committee {})", meeting.getAgcId());
         tokenValidation(context);
-        Response denied = forbiddenUnless("schedule meetings", ROLE_SECRETARY);
+        Response denied = forbiddenUnless("schedule meetings", ROLE_SECRETARY, ROLE_CHAIRPERSON);
         if (denied != null) return denied;
         try {
             return Response.ok(agendaService.createMeeting(meeting, userName())).build();
@@ -366,12 +370,12 @@ public class ApprovalForumAgendaResource {
     @Produces("application/json")
     @Consumes("application/json")
     @Transactional
-    @ApiOperation(value = "Update meeting date, time, mode, venue or Teams details (Secretary only)",
+    @ApiOperation(value = "Update meeting date, time, mode, venue or Teams details (secretary/chair only)",
             authorizations = @Authorization(value = "Bearer"))
     public Response updateMeeting(@PathParam("agmId") int agmId, AgendaMeetingDTO meeting) {
         logger.info("updateMeeting({})", agmId);
         tokenValidation(context);
-        Response denied = forbiddenUnless("update meetings", ROLE_SECRETARY);
+        Response denied = forbiddenUnless("update meetings", ROLE_SECRETARY, ROLE_CHAIRPERSON);
         if (denied != null) return denied;
         meeting.setAgmId(agmId);
         try {
@@ -385,14 +389,30 @@ public class ApprovalForumAgendaResource {
     @Path("/meetings/{agmId}/cancel")
     @Produces("application/json")
     @Transactional
-    @ApiOperation(value = "Cancel a meeting (Secretary only)", authorizations = @Authorization(value = "Bearer"))
+    @ApiOperation(value = "Cancel a meeting (secretary/chair only)", authorizations = @Authorization(value = "Bearer"))
     public Response cancelMeeting(@PathParam("agmId") int agmId, @QueryParam("reason") String reason) {
         logger.info("cancelMeeting({})", agmId);
         tokenValidation(context);
-        Response denied = forbiddenUnless("cancel meetings", ROLE_SECRETARY);
+        Response denied = forbiddenUnless("cancel meetings", ROLE_SECRETARY, ROLE_CHAIRPERSON);
         if (denied != null) return denied;
         try {
             return Response.ok(agendaService.cancelMeeting(agmId, reason, userName())).build();
+        } catch (IllegalStateException e) {
+            return conflict(e);
+        }
+    }
+
+    @POST
+    @Path("/meetings/{agmId}/reinstate")
+    @Produces("application/json")
+    @Transactional
+    @ApiOperation(value = "Reinstate a cancelled meeting (secretary/chair only)", authorizations = @Authorization(value = "Bearer"))
+    public Response reinstateMeeting(@PathParam("agmId") int agmId, @QueryParam("reason") String reason) {
+        tokenValidation(context);
+        Response denied = forbiddenUnless("reinstate meetings", ROLE_SECRETARY, ROLE_CHAIRPERSON);
+        if (denied != null) return denied;
+        try {
+            return Response.ok(agendaService.reinstateMeeting(agmId, reason, userName())).build();
         } catch (IllegalStateException e) {
             return conflict(e);
         }
@@ -503,6 +523,36 @@ public class ApprovalForumAgendaResource {
         if (denied != null) return denied;
         try {
             return Response.ok(agendaService.rescheduleAgenda(agmId, userName())).build();
+        } catch (IllegalStateException e) {
+            return conflict(e);
+        }
+    }
+
+    @POST
+    @Path("/meetings/{agmId}/invitation")
+    @Produces("application/json")
+    @Transactional
+    public Response sendInvitation(@PathParam("agmId") int agmId) {
+        tokenValidation(context);
+        Response denied = forbiddenUnless("send the calendar invitation", ROLE_SECRETARY, ROLE_CHAIRPERSON);
+        if (denied != null) return denied;
+        try {
+            return Response.ok(agendaService.sendInvitation(agmId, userName())).build();
+        } catch (IllegalStateException e) {
+            return conflict(e);
+        }
+    }
+
+    @POST
+    @Path("/meetings/{agmId}/invitation/update")
+    @Produces("application/json")
+    @Transactional
+    public Response sendInvitationUpdate(@PathParam("agmId") int agmId) {
+        tokenValidation(context);
+        Response denied = forbiddenUnless("send the updated calendar invitation", ROLE_SECRETARY, ROLE_CHAIRPERSON);
+        if (denied != null) return denied;
+        try {
+            return Response.ok(agendaService.sendInvitationUpdate(agmId, userName())).build();
         } catch (IllegalStateException e) {
             return conflict(e);
         }
@@ -640,7 +690,7 @@ public class ApprovalForumAgendaResource {
         logger.info("bookItem(committee {})", request.getAgcId());
         tokenValidation(context);
         try {
-            return Response.ok(agendaService.bookItem(request, userName())).build();
+            return Response.ok(withPermissions(agendaService.bookItem(request, userName(), access()))).build();
         } catch (IllegalStateException e) {
             return conflict(e);
         }
@@ -695,7 +745,153 @@ public class ApprovalForumAgendaResource {
         tokenValidation(context);
         Response denied = forbiddenUnlessCanView("open agenda item", agiId);
         if (denied != null) return denied;
-        return Response.ok(agendaService.getItem(agiId)).build();
+        AgendaItemDTO item = agendaService.getItem(agiId);
+        item.setCanReassignReviewer(agendaService.canReassignReviewer(agiId, userName(), access()));
+        item.setCanChangeSchedule(agendaService.canChangeSchedule(agiId, userName(), access()));
+        item.setCanRequestQuorumException(agendaService.canRequestQuorumException(agiId, userName()));
+        item.setCanDecideQuorumException(agendaService.canDecideQuorumException(agiId, userName(), access()));
+        return Response.ok(item).build();
+    }
+
+    /** The item as the page shows it after a change: with what this caller may still do. */
+    private AgendaItemDTO withPermissions(AgendaItemDTO item) {
+        if (item != null) {
+            item.setCanReassignReviewer(agendaService.canReassignReviewer(item.getAgiId(), userName(), access()));
+            item.setCanChangeSchedule(agendaService.canChangeSchedule(item.getAgiId(), userName(), access()));
+            item.setCanRequestQuorumException(agendaService.canRequestQuorumException(item.getAgiId(), userName()));
+            item.setCanDecideQuorumException(agendaService.canDecideQuorumException(item.getAgiId(), userName(), access()));
+        }
+        return item;
+    }
+
+    /** 403 unless the caller may move this item or change its roster (owner or assigned reviewer, before approval). */
+    private Response forbiddenUnlessCanChangeSchedule(String what, int agiId) {
+        if (agendaService.canChangeSchedule(agiId, userName(), access())) {
+            return null;
+        }
+        return forbidden(what, agiId, "Only the analyst who owns agenda item " + agiId + ", or its review analyst, can "
+                + what + " - and only before the item is approved, while its meeting is open.");
+    }
+
+    @POST
+    @Path("/items/{agiId}/meeting")
+    @Produces("application/json")
+    @Consumes("application/json")
+    @Transactional
+    @ApiOperation(value = "Move an item to another meeting date (or start time) of its committee, before approval",
+            authorizations = @Authorization(value = "Bearer"))
+    public Response moveItem(@PathParam("agiId") int agiId, MoveAgendaItemRequest request) {
+        logger.info("moveItem({})", agiId);
+        tokenValidation(context);
+        Response denied = forbiddenUnlessCanChangeSchedule("change the meeting date", agiId);
+        if (denied != null) return denied;
+        try {
+            return Response.ok(withPermissions(agendaService.moveItem(agiId, request, userName()))).build();
+        } catch (IllegalStateException e) {
+            return conflict(e);
+        }
+    }
+
+    @PUT
+    @Path("/items/{agiId}/roster")
+    @Produces("application/json")
+    @Consumes("application/json")
+    @Transactional
+    @ApiOperation(value = "Replace the quorum roster and attendees of an item, before approval",
+            authorizations = @Authorization(value = "Bearer"))
+    public Response updateRoster(@PathParam("agiId") int agiId, AgendaItemDTO roster) {
+        logger.info("updateRoster({})", agiId);
+        tokenValidation(context);
+        Response denied = forbiddenUnlessCanChangeSchedule("change the quorum roster", agiId);
+        if (denied != null) return denied;
+        try {
+            return Response.ok(withPermissions(agendaService.updateRoster(agiId, roster, userName()))).build();
+        } catch (IllegalStateException e) {
+            return conflict(e);
+        }
+    }
+
+    // ---- Booking drafts: the caller's own, saved part-way through booking ----
+
+    @GET
+    @Path("/drafts")
+    @Produces("application/json")
+    @ApiOperation(value = "The caller's saved booking drafts", authorizations = @Authorization(value = "Bearer"))
+    public Response getBookingDrafts() {
+        logger.info("getBookingDrafts()");
+        tokenValidation(context);
+        return Response.ok(agendaService.getBookingDrafts(userName())).build();
+    }
+
+    @GET
+    @Path("/drafts/{agbdId}")
+    @Produces("application/json")
+    @ApiOperation(value = "One of the caller's booking drafts, with its saved state", authorizations = @Authorization(value = "Bearer"))
+    public Response getBookingDraft(@PathParam("agbdId") int agbdId) {
+        logger.info("getBookingDraft({})", agbdId);
+        tokenValidation(context);
+        try {
+            return Response.ok(agendaService.getBookingDraft(agbdId, userName())).build();
+        } catch (IllegalArgumentException e) {
+            return draftNotFound(e);
+        }
+    }
+
+    @POST
+    @Path("/drafts")
+    @Produces("application/json")
+    @Consumes("application/json")
+    @Transactional
+    @ApiOperation(value = "Save a new booking draft", authorizations = @Authorization(value = "Bearer"))
+    public Response createBookingDraft(AgendaBookingDraftDTO draft) {
+        logger.info("createBookingDraft()");
+        tokenValidation(context);
+        if (draft != null) draft.setAgbdId(0);
+        try {
+            return Response.ok(agendaService.saveBookingDraft(draft, userName())).build();
+        } catch (IllegalStateException e) {
+            return conflict(e);
+        }
+    }
+
+    @PUT
+    @Path("/drafts/{agbdId}")
+    @Produces("application/json")
+    @Consumes("application/json")
+    @Transactional
+    @ApiOperation(value = "Update one of the caller's booking drafts", authorizations = @Authorization(value = "Bearer"))
+    public Response updateBookingDraft(@PathParam("agbdId") int agbdId, AgendaBookingDraftDTO draft) {
+        logger.info("updateBookingDraft({})", agbdId);
+        tokenValidation(context);
+        if (draft == null) draft = new AgendaBookingDraftDTO();
+        draft.setAgbdId(agbdId);
+        try {
+            return Response.ok(agendaService.saveBookingDraft(draft, userName())).build();
+        } catch (IllegalStateException e) {
+            return conflict(e);
+        } catch (IllegalArgumentException e) {
+            return draftNotFound(e);
+        }
+    }
+
+    @DELETE
+    @Path("/drafts/{agbdId}")
+    @Transactional
+    @ApiOperation(value = "Discard one of the caller's booking drafts", authorizations = @Authorization(value = "Bearer"))
+    public Response deleteBookingDraft(@PathParam("agbdId") int agbdId) {
+        logger.info("deleteBookingDraft({})", agbdId);
+        tokenValidation(context);
+        try {
+            agendaService.deleteBookingDraft(agbdId, userName());
+            return Response.noContent().build();
+        } catch (IllegalArgumentException e) {
+            return draftNotFound(e);
+        }
+    }
+
+    private Response draftNotFound(IllegalArgumentException e) {
+        return Response.status(Response.Status.NOT_FOUND)
+                .entity(java.util.Collections.singletonMap("message", e.getMessage())).build();
     }
 
     @POST
@@ -753,7 +949,11 @@ public class ApprovalForumAgendaResource {
         }
 
         String fileExtension = fileName.contains(".") ? fileName.substring(fileName.lastIndexOf('.')) : "";
-        return Response.ok(agendaService.uploadDocument(agiId, docType, fileName, fileExtension, bytes, userName())).build();
+        try {
+            return Response.ok(withPermissions(agendaService.uploadDocument(agiId, docType, fileName, fileExtension, bytes, userName()))).build();
+        } catch (IllegalStateException e) {
+            return conflict(e);
+        }
     }
 
     @GET
@@ -871,7 +1071,7 @@ public class ApprovalForumAgendaResource {
             return forbiddenUnless("override quorum", ROLE_SECRETARY, ROLE_CHAIRPERSON);
         }
         try {
-            return Response.ok(agendaService.submitItem(agiId, quorumOverrideReason, userName())).build();
+            return Response.ok(agendaService.submitItem(agiId, quorumOverrideReason, userName(), access())).build();
         } catch (IllegalStateException e) {
             return conflict(e);
         }
@@ -890,6 +1090,90 @@ public class ApprovalForumAgendaResource {
         if (denied != null) return denied;
         try {
             return Response.ok(agendaService.returnItem(agiId, reason, userName())).build();
+        } catch (IllegalStateException e) {
+            return conflict(e);
+        }
+    }
+
+    @POST
+    @Path("/items/{agiId}/quorum-exception")
+    @Consumes("application/json")
+    @Produces("application/json")
+    @Transactional
+    @ApiOperation(value = "The item's analyst asks the committee's secretary and chair for a quorum exception",
+            authorizations = @Authorization(value = "Bearer"))
+    public Response requestQuorumException(@PathParam("agiId") int agiId, QuorumExceptionRequest request) {
+        logger.info("requestQuorumException({})", agiId);
+        tokenValidation(context);
+        Response denied = forbiddenUnlessOwner("ask for a quorum exception on agenda items", agiId);
+        if (denied != null) return denied;
+        try {
+            return Response.ok(withPermissions(agendaService.requestQuorumException(agiId,
+                    request == null ? null : request.getReason(), userName()))).build();
+        } catch (IllegalStateException e) {
+            return conflict(e);
+        }
+    }
+
+    @POST
+    @Path("/items/{agiId}/quorum-exception/decision")
+    @Consumes("application/json")
+    @Produces("application/json")
+    @Transactional
+    @ApiOperation(value = "The committee's secretary or chair approves or declines a requested quorum exception",
+            authorizations = @Authorization(value = "Bearer"))
+    public Response decideQuorumException(@PathParam("agiId") int agiId, QuorumExceptionRequest request) {
+        logger.info("decideQuorumException({})", agiId);
+        tokenValidation(context);
+        Response denied = forbiddenUnless("decide quorum exceptions", ROLE_SECRETARY, ROLE_CHAIRPERSON);
+        if (denied != null) return denied;
+        if (request == null || request.getApproved() == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(java.util.Collections.singletonMap("message", "Say whether the quorum exception is approved")).build();
+        }
+        try {
+            return Response.ok(withPermissions(agendaService.decideQuorumException(agiId, request.getApproved(),
+                    request.getNote(), userName(), access()))).build();
+        } catch (IllegalStateException e) {
+            return conflict(e);
+        }
+    }
+
+    @POST
+    @Path("/items/{agiId}/reviewer")
+    @Consumes("application/json")
+    @Produces("application/json")
+    @Transactional
+    public Response reassignReviewer(@PathParam("agiId") int agiId, ReassignAgendaReviewerRequest request) {
+        tokenValidation(context);
+        Response denied = forbiddenUnless("reassign reviewers", ROLE_SECRETARY, ROLE_CHAIRPERSON);
+        if (denied != null) return denied;
+        if (!agendaService.canReassignReviewer(agiId, userName(), access())) {
+            return forbidden("reassign reviewer", agiId, "Only this committee's secretary or chair may reassign an item awaiting review on an open agenda.");
+        }
+        try {
+            AgendaItemDTO item = agendaService.reassignReviewer(agiId, request, userName(), access());
+            item.setCanReassignReviewer(agendaService.canReassignReviewer(agiId, userName(), access()));
+            return Response.ok(item).build();
+        } catch (IllegalStateException e) {
+            return conflict(e);
+        }
+    }
+
+    @POST
+    @Path("/items/{agiId}/review")
+    @Produces("application/json")
+    @Transactional
+    @ApiOperation(value = "Complete independent review of the whole submission (reviewer/Secretary/Chair)",
+            authorizations = @Authorization(value = "Bearer"))
+    public Response completeReview(@PathParam("agiId") int agiId, @QueryParam("comments") String comments) {
+        tokenValidation(context);
+        Response denied = forbiddenUnless("complete submission review", reviewerRole(), ROLE_SECRETARY, ROLE_CHAIRPERSON);
+        if (denied != null) return denied;
+        denied = forbiddenUnlessCanView("review", agiId);
+        if (denied != null) return denied;
+        try {
+            return Response.ok(agendaService.completeReview(agiId, comments, userName())).build();
         } catch (IllegalStateException e) {
             return conflict(e);
         }

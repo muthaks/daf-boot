@@ -8,6 +8,7 @@ import za.co.rmb.approvalforum.data.ApprovalForumAgendaRepository;
 import za.co.rmb.approvalforum.data.entity.ApprovalForumAgnAgendaNotificationEntity;
 import za.co.rmb.approvalforum.model.agenda.AgendaItemDTO;
 import za.co.rmb.approvalforum.model.agenda.AgendaMeetingDTO;
+import za.co.rmb.approvalforum.model.agenda.AgendaQuorumResultDTO;
 import za.co.rmb.approvalforum.service.AgendaMailService;
 import za.co.rmb.approvalforum.service.ApprovalForumAuthService;
 import za.co.rmb.credit.authservice.model.ActiveDirectoryUserModel;
@@ -129,13 +130,72 @@ public class AgendaMailServiceImpl implements AgendaMailService {
     }
 
     @Override
+    public void sendItemReviewedMail(AgendaItemDTO item, String approverIds) {
+        String content = banner("#e6f4f4", "#b3dede", "Submission Review Complete", "AWAITING APPROVAL", "#006c68",
+                item.getCounterpartyName() + " has completed independent review. An authorised approver or chair must now approve or reject the agenda item.")
+                + itemSections(item);
+        send(item.getAgiId(), null, "Reviewed", join(resolveEmails(approverIds), analystRecipients(item)),
+                SUBJECT_PREFIX + "Item reviewed - approval required: " + item.getCounterpartyName(), shell(content, dafLink(item.getAgiId(), null)), null);
+    }
+
+    @Override
     public void sendItemReturnedMail(AgendaItemDTO item, String reason) {
         String content = banner("#fff6dd", "#f0dfae", "Agenda Item Returned", "RETURNED", "#f47920",
                 item.getCounterpartyName() + " has been returned by the reviewer and needs attention before it can be "
-                        + "resubmitted." + (reason == null || reason.trim().isEmpty() ? "" : " Reason: " + reason.trim()))
+                        + "resubmitted.")
+                + section("Reason for return", htmlText(reason == null || reason.trim().isEmpty()
+                        ? "No return reason was recorded. Ask the reviewer to clarify the required corrections." : reason.trim()))
+                + section("What to do next", "Make the requested corrections. If the credit paper changed, upload a new PDF version. "
+                        + "Then submit the item for review again using the link below.")
                 + itemSections(item);
         send(item.getAgiId(), null, "Returned", analystRecipients(item),
                 SUBJECT_PREFIX + "Item returned: " + item.getCounterpartyName(), shell(content, dafLink(item.getAgiId(), null)), null);
+    }
+
+    @Override
+    public void sendItemChangedMail(AgendaItemDTO item, String recipientIds, String change, String detail) {
+        String content = banner("#e6f4f4", "#b3dede", "Agenda Item Changed", "CHANGED", "#006c68",
+                item.getCounterpartyName() + " on the " + committeeOf(item) + " agenda for " + dateOf(item)
+                        + " has changed while it is in review: " + htmlText(change) + ".")
+                + section("What changed", htmlText(detail))
+                + itemSections(item);
+        send(item.getAgiId(), null, "Changed", join(resolveEmails(recipientIds), analystRecipients(item)),
+                SUBJECT_PREFIX + "Item changed (" + change + "): " + item.getCounterpartyName(),
+                shell(content, dafLink(item.getAgiId(), null)), null);
+    }
+
+    @Override
+    public void sendQuorumExceptionRequestedMail(AgendaItemDTO item, String deciderIds, AgendaQuorumResultDTO quorum) {
+        String people = quorum == null ? "" : " It has " + quorum.getEligibleCount() + " of the " + quorum.getRequired()
+                + " eligible people the committee needs.";
+        String content = banner("#fff6dd", "#f0dfae", "Quorum Exception Requested", "DECISION NEEDED", "#f47920",
+                item.getCounterpartyName() + " on the " + committeeOf(item) + " agenda for " + dateOf(item)
+                        + " does not have full quorum." + people)
+                + section("Reason given by the analyst", htmlText(item.getQuorumExceptionReason()))
+                + section("What to do next", "Open the item with the link below and approve or decline the quorum exception. "
+                        + "If you approve it, the analyst can submit the item for review when the paper is ready.")
+                + itemSections(item);
+        send(item.getAgiId(), null, "Quorum exception requested", join(resolveEmails(deciderIds), analystRecipients(item)),
+                SUBJECT_PREFIX + "Quorum exception requested: " + item.getCounterpartyName(),
+                shell(content, dafLink(item.getAgiId(), null)), null);
+    }
+
+    @Override
+    public void sendQuorumExceptionDecidedMail(AgendaItemDTO item, boolean approved, String note) {
+        String content = (approved
+                ? banner("#e8f6ed", "#bfe6cc", "Quorum Exception Approved", "APPROVED", "#1CA345",
+                        "The quorum exception for " + item.getCounterpartyName() + " on the " + committeeOf(item)
+                                + " agenda for " + dateOf(item) + " has been approved. You can submit the item for review "
+                                + "without full quorum once the paper and details are complete.")
+                : banner("#fcebec", "#f0b9bb", "Quorum Exception Declined", "DECLINED", "#DD3F44",
+                        "The quorum exception for " + item.getCounterpartyName() + " on the " + committeeOf(item)
+                                + " agenda for " + dateOf(item) + " has been declined. Add the people needed for quorum "
+                                + "before you submit the item for review."))
+                + (note == null || note.trim().isEmpty() ? "" : section(approved ? "Note" : "Reason", htmlText(note.trim())))
+                + itemSections(item);
+        String type = approved ? "Quorum exception approved" : "Quorum exception declined";
+        send(item.getAgiId(), null, type, analystRecipients(item),
+                SUBJECT_PREFIX + type + ": " + item.getCounterpartyName(), shell(content, dafLink(item.getAgiId(), null)), null);
     }
 
     @Override
@@ -221,11 +281,17 @@ public class AgendaMailServiceImpl implements AgendaMailService {
                 + ";border:1px solid " + border + ";border-radius:6px;\"><tr>"
                 + "<td style=\"padding:14px 18px;\">"
                 + "<div style=\"" + FONT + "font-size:16px;font-weight:bold;color:#0a0a0d;\">" + title + "</div>"
-                + "<div style=\"" + FONT + "font-size:13px;color:#4a4f55;padding-top:4px;\">" + text + "</div></td>"
+                + "<div style=\"" + FONT + "font-size:13px;color:#4a4f55;padding-top:4px;\">" + htmlText(text) + "</div></td>"
                 + "<td align=\"right\" valign=\"top\" style=\"padding:14px 18px;\">"
                 + "<span style=\"" + FONT + "font-size:10px;font-weight:bold;letter-spacing:0.5px;color:" + badgeColor + ";\">"
                 + badge + "</span></td>"
                 + "</tr></table>";
+    }
+
+    /** Treat user-entered content as text, preserving readable paragraph breaks in email. */
+    private String htmlText(String value) {
+        return value == null ? "" : value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\"", "&quot;").replace("'", "&#39;").replace("\r\n", "\n").replace("\r", "\n").replace("\n", "<br/>");
     }
 
     private String section(String title, String inner) {
@@ -245,7 +311,7 @@ public class AgendaMailServiceImpl implements AgendaMailService {
             sb.append("<tr><td style=\"padding:3px 0;").append(FONT)
                     .append("font-size:13px;color:#4a4f55;width:45%;\">").append(r[0])
                     .append("</td><td style=\"padding:3px 0;").append(FONT)
-                    .append("font-size:13px;color:#0a0a0d;font-weight:bold;\">").append(r[1])
+                    .append("font-size:13px;color:#0a0a0d;font-weight:bold;\">").append(htmlText(r[1]))
                     .append("</td></tr>");
         }
         return sb.append("</table>").toString();

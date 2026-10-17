@@ -20,6 +20,9 @@ public interface ApprovalForumAgendaRepository {
 
     ApprovalForumAgcAgendaCommitteeEntity getCommittee(int agcId);
 
+    /** Serializes interval checks and writes, including creation of a committee's first meeting. */
+    void lockCommitteeBookings(int agcId);
+
     ApprovalForumAgcAgendaCommitteeEntity saveCommittee(ApprovalForumAgcAgendaCommitteeEntity committee);
 
     List<ApprovalForumAgmAgendaMeetingEntity> getMeetingsForCommittee(int agcId);
@@ -31,6 +34,9 @@ public interface ApprovalForumAgendaRepository {
     List<ApprovalForumAgmAgendaMeetingEntity> getMeetingsWithCutOffBetween(Timestamp from, Timestamp to);
 
     ApprovalForumAgmAgendaMeetingEntity getMeeting(int agmId);
+
+    /** Serialize sending, cancellation and reinstatement of a calendar invitation. */
+    ApprovalForumAgmAgendaMeetingEntity getMeetingForUpdate(int agmId);
 
     ApprovalForumAgmAgendaMeetingEntity saveMeeting(ApprovalForumAgmAgendaMeetingEntity meeting);
 
@@ -47,11 +53,16 @@ public interface ApprovalForumAgendaRepository {
 
     ApprovalForumAgiAgendaItemEntity getItem(int agiId);
 
+    ApprovalForumAgiAgendaItemEntity getItemForUpdate(int agiId);
+
     ApprovalForumAgiAgendaItemEntity saveItem(ApprovalForumAgiAgendaItemEntity item);
 
     List<ApprovalForumAgidAgendaItemDocumentEntity> getDocumentsForItem(int agiId);
 
     ApprovalForumAgidAgendaItemDocumentEntity getDocument(int agidId);
+
+    /** Serializes final decisions on the same document version. Call inside a transaction. */
+    ApprovalForumAgidAgendaItemDocumentEntity getDocumentForValidation(int agidId);
 
     ApprovalForumAgidAgendaItemDocumentEntity saveDocument(ApprovalForumAgidAgendaItemDocumentEntity document);
 
@@ -78,6 +89,14 @@ public interface ApprovalForumAgendaRepository {
     List<ApprovalForumAgwAgendaWorkflowActionEntity> getWorkflowActionsForMeeting(int agmId);
 
     List<ApprovalForumAgpAgendaParticipantEntity> getParticipantsForItem(int agiId);
+
+    /** The active booking drafts saved by this user, most recently changed first. */
+    List<za.co.rmb.approvalforum.data.entity.ApprovalForumAgbdAgendaBookingDraftEntity> getBookingDrafts(String ownerId);
+
+    za.co.rmb.approvalforum.data.entity.ApprovalForumAgbdAgendaBookingDraftEntity getBookingDraft(int agbdId);
+
+    za.co.rmb.approvalforum.data.entity.ApprovalForumAgbdAgendaBookingDraftEntity saveBookingDraft(
+            za.co.rmb.approvalforum.data.entity.ApprovalForumAgbdAgendaBookingDraftEntity draft);
 
     ApprovalForumAgpAgendaParticipantEntity saveParticipant(ApprovalForumAgpAgendaParticipantEntity participant);
 

@@ -47,6 +47,9 @@ server:
   # legacy war name; the JAX-RS application is under /api (JerseyConfig), so URLs stay /approvalforum/api/...
   servlet:
     context-path: /approvalforum
+  # The platform sign-in's bearer (/auth/platformToken) is an auth-service token carrying the user's groups;
+  # same limit as the auth service, the platform nginx and the gateway (Tomcat's default is 8 KB)
+  max-http-request-header-size: ${MAX_HTTP_HEADER_SIZE:65536}
 
 management:
   endpoints:

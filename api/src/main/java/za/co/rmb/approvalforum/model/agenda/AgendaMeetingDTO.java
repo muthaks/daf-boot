@@ -64,6 +64,9 @@ public class AgendaMeetingDTO {
     private String venue;
     private String teamsJoinUrl;
     private String graphEventId;
+    private Timestamp invitationSentOn;
+    private String invitationSentBy;
+    private boolean invitationNeedsUpdate;
     private String actualStartTime;
     private String actualEndTime;
     private Boolean quorumAchieved;
@@ -89,6 +92,13 @@ public class AgendaMeetingDTO {
 
     public String getGraphEventId() { return graphEventId; }
     public void setGraphEventId(String graphEventId) { this.graphEventId = graphEventId; }
+
+    public Timestamp getInvitationSentOn() { return invitationSentOn; }
+    public void setInvitationSentOn(Timestamp value) { invitationSentOn = value; }
+    public String getInvitationSentBy() { return invitationSentBy; }
+    public void setInvitationSentBy(String value) { invitationSentBy = value; }
+    public boolean isInvitationNeedsUpdate() { return invitationNeedsUpdate; }
+    public void setInvitationNeedsUpdate(boolean value) { invitationNeedsUpdate = value; }
 
     public String getActualStartTime() { return actualStartTime; }
     public void setActualStartTime(String actualStartTime) { this.actualStartTime = actualStartTime; }

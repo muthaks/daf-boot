@@ -43,6 +43,11 @@ public class JPAApprovalForumAgendaRepository implements ApprovalForumAgendaRepo
     }
 
     @Override
+    public void lockCommitteeBookings(int agcId) {
+        em.find(ApprovalForumAgcAgendaCommitteeEntity.class, agcId, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    @Override
     public ApprovalForumAgcAgendaCommitteeEntity saveCommittee(ApprovalForumAgcAgendaCommitteeEntity committee) {
         return em.merge(committee);
     }
@@ -105,6 +110,11 @@ public class JPAApprovalForumAgendaRepository implements ApprovalForumAgendaRepo
     @Override
     public ApprovalForumAgmAgendaMeetingEntity getMeeting(int agmId) {
         return em.find(ApprovalForumAgmAgendaMeetingEntity.class, agmId);
+    }
+
+    @Override
+    public ApprovalForumAgmAgendaMeetingEntity getMeetingForUpdate(int agmId) {
+        return em.find(ApprovalForumAgmAgendaMeetingEntity.class, agmId, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
     }
 
     @Override
@@ -180,6 +190,11 @@ public class JPAApprovalForumAgendaRepository implements ApprovalForumAgendaRepo
     }
 
     @Override
+    public ApprovalForumAgiAgendaItemEntity getItemForUpdate(int agiId) {
+        return em.find(ApprovalForumAgiAgendaItemEntity.class, agiId, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    @Override
     public ApprovalForumAgiAgendaItemEntity saveItem(ApprovalForumAgiAgendaItemEntity item) {
         return em.merge(item);
     }
@@ -199,6 +214,11 @@ public class JPAApprovalForumAgendaRepository implements ApprovalForumAgendaRepo
     @Override
     public ApprovalForumAgidAgendaItemDocumentEntity getDocument(int agidId) {
         return em.find(ApprovalForumAgidAgendaItemDocumentEntity.class, agidId);
+    }
+
+    @Override
+    public ApprovalForumAgidAgendaItemDocumentEntity getDocumentForValidation(int agidId) {
+        return em.find(ApprovalForumAgidAgendaItemDocumentEntity.class, agidId, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
     }
 
     @Override
@@ -303,6 +323,28 @@ public class JPAApprovalForumAgendaRepository implements ApprovalForumAgendaRepo
                 .setParameter("agmId", agmId)
                 .setParameter("active", true)
                 .getResultList();
+    }
+
+    @Override
+    public List<za.co.rmb.approvalforum.data.entity.ApprovalForumAgbdAgendaBookingDraftEntity> getBookingDrafts(String ownerId) {
+        return em.createQuery("from ApprovalForumAgbdAgendaBookingDraftEntity t " +
+                        "where t.ownerId = :ownerId and t.active = :active " +
+                        "order by coalesce(t.updatedOn, t.createdOn) desc",
+                za.co.rmb.approvalforum.data.entity.ApprovalForumAgbdAgendaBookingDraftEntity.class)
+                .setParameter("ownerId", ownerId)
+                .setParameter("active", true)
+                .getResultList();
+    }
+
+    @Override
+    public za.co.rmb.approvalforum.data.entity.ApprovalForumAgbdAgendaBookingDraftEntity getBookingDraft(int agbdId) {
+        return em.find(za.co.rmb.approvalforum.data.entity.ApprovalForumAgbdAgendaBookingDraftEntity.class, agbdId);
+    }
+
+    @Override
+    public za.co.rmb.approvalforum.data.entity.ApprovalForumAgbdAgendaBookingDraftEntity saveBookingDraft(
+            za.co.rmb.approvalforum.data.entity.ApprovalForumAgbdAgendaBookingDraftEntity draft) {
+        return em.merge(draft);
     }
 
     @Override

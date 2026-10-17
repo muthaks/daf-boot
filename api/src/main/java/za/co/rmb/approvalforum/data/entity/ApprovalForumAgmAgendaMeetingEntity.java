@@ -26,6 +26,10 @@ public class ApprovalForumAgmAgendaMeetingEntity {
     private String venue;
     private String teamsJoinUrl;
     private String graphEventId;
+    private String invitationSnapshot;
+    private Timestamp invitationSentOn;
+    private String invitationSentBy;
+    private boolean invitationReopened;
     private String actualStartTime;
     private String actualEndTime;
     private Boolean quorumAchieved;
@@ -164,6 +168,26 @@ public class ApprovalForumAgmAgendaMeetingEntity {
     @Column(name = "GraphEventId")
     public String getGraphEventId() { return graphEventId; }
     public void setGraphEventId(String graphEventId) { this.graphEventId = graphEventId; }
+
+    @Basic
+    @Column(name = "InvitationSnapshot", length = 64)
+    public String getInvitationSnapshot() { return invitationSnapshot; }
+    public void setInvitationSnapshot(String value) { invitationSnapshot = value; }
+
+    @Basic
+    @Column(name = "InvitationSentOn")
+    public Timestamp getInvitationSentOn() { return invitationSentOn; }
+    public void setInvitationSentOn(Timestamp value) { invitationSentOn = value; }
+
+    @Basic
+    @Column(name = "InvitationSentBy")
+    public String getInvitationSentBy() { return invitationSentBy; }
+    public void setInvitationSentBy(String value) { invitationSentBy = value; }
+
+    @Basic
+    @Column(name = "InvitationReopened", nullable = false)
+    public boolean isInvitationReopened() { return invitationReopened; }
+    public void setInvitationReopened(boolean value) { invitationReopened = value; }
 
     @Basic
     @Column(name = "ActualStartTime", length = 5)

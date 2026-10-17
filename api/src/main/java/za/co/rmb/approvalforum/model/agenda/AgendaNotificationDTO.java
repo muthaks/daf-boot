@@ -13,6 +13,18 @@ public class AgendaNotificationDTO {
     private String status;
     private String errorMessage;
     private Timestamp sentOn;
+    private String reason;
+    private String actionBy;
+    private String message;
+    private Integer workflowActionId;
+    public String getReason() { return reason; }
+    public void setReason(String reason) { this.reason = reason; }
+    public String getActionBy() { return actionBy; }
+    public void setActionBy(String actionBy) { this.actionBy = actionBy; }
+    public String getMessage() { return message; }
+    public void setMessage(String message) { this.message = message; }
+    public Integer getWorkflowActionId() { return workflowActionId; }
+    public void setWorkflowActionId(Integer id) { this.workflowActionId = id; }
 
     public int getAgnId() { return agnId; }
     public void setAgnId(int agnId) { this.agnId = agnId; }

@@ -48,6 +48,7 @@
         <class>za.co.rmb.approvalforum.data.entity.ApprovalForumAgpAgendaParticipantEntity</class>
         <class>za.co.rmb.approvalforum.data.entity.ApprovalForumAgcaAgendaConditionEntity</class>
         <class>za.co.rmb.approvalforum.data.entity.ApprovalForumAgmrAgendaMeetingRecordEntity</class>
+        <class>za.co.rmb.approvalforum.data.entity.ApprovalForumAgbdAgendaBookingDraftEntity</class>
         <properties>
             <property name="org.hibernate.envers.audit_table_prefix"
                       value="A_"/>

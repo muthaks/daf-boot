@@ -73,6 +73,13 @@ public class ApprovalForumAgiAgendaItemEntity {
     private String submittedBy;
     private Timestamp submittedOn;
     private String quorumOverrideReason;
+    private String quorumExceptionStatus;
+    private String quorumExceptionReason;
+    private String quorumExceptionRequestedBy;
+    private Timestamp quorumExceptionRequestedOn;
+    private String quorumExceptionDecidedBy;
+    private Timestamp quorumExceptionDecidedOn;
+    private String quorumExceptionDecisionNote;
 
     private ApprovalForumAgmAgendaMeetingEntity agmAgendaMeetingByAgmId;
 
@@ -538,6 +545,43 @@ public class ApprovalForumAgiAgendaItemEntity {
     @Column(name = "QuorumOverrideReason", length = 1000)
     public String getQuorumOverrideReason() { return quorumOverrideReason; }
     public void setQuorumOverrideReason(String quorumOverrideReason) { this.quorumOverrideReason = quorumOverrideReason; }
+
+    // ---- V16: quorum exception asked for by the analyst, decided by the secretary or chair ----
+
+    @Basic
+    @Column(name = "QuorumExceptionStatus", length = 20)
+    public String getQuorumExceptionStatus() { return quorumExceptionStatus; }
+    public void setQuorumExceptionStatus(String value) { quorumExceptionStatus = value; }
+
+    @Basic
+    @Column(name = "QuorumExceptionReason", length = 1000)
+    public String getQuorumExceptionReason() { return quorumExceptionReason; }
+    public void setQuorumExceptionReason(String value) { quorumExceptionReason = value; }
+
+    @Basic
+    @Column(name = "QuorumExceptionRequestedBy")
+    public String getQuorumExceptionRequestedBy() { return quorumExceptionRequestedBy; }
+    public void setQuorumExceptionRequestedBy(String value) { quorumExceptionRequestedBy = value; }
+
+    @Basic
+    @Column(name = "QuorumExceptionRequestedOn")
+    public Timestamp getQuorumExceptionRequestedOn() { return quorumExceptionRequestedOn; }
+    public void setQuorumExceptionRequestedOn(Timestamp value) { quorumExceptionRequestedOn = value; }
+
+    @Basic
+    @Column(name = "QuorumExceptionDecidedBy")
+    public String getQuorumExceptionDecidedBy() { return quorumExceptionDecidedBy; }
+    public void setQuorumExceptionDecidedBy(String value) { quorumExceptionDecidedBy = value; }
+
+    @Basic
+    @Column(name = "QuorumExceptionDecidedOn")
+    public Timestamp getQuorumExceptionDecidedOn() { return quorumExceptionDecidedOn; }
+    public void setQuorumExceptionDecidedOn(Timestamp value) { quorumExceptionDecidedOn = value; }
+
+    @Basic
+    @Column(name = "QuorumExceptionDecisionNote", length = 1000)
+    public String getQuorumExceptionDecisionNote() { return quorumExceptionDecisionNote; }
+    public void setQuorumExceptionDecisionNote(String value) { quorumExceptionDecisionNote = value; }
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "AGM_ID", referencedColumnName = "AGM_ID", nullable = false)

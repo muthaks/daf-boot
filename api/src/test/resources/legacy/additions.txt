@@ -3,3 +3,8 @@
 GET /approvalForum/creditdata/countries
 GET /approvalForum/creditdata/industries
 GET /approvalForum/creditdata/counterparty/classification
+# Platform sign-in: a DAF session for a user signed in to the Credit platform (auth-service token for DAF).
+POST /auth/platformToken
+# Quorum exception: the analyst asks, the committee secretary or chair decides.
+POST /approvalForum/agenda/items/{agiId}/quorum-exception
+POST /approvalForum/agenda/items/{agiId}/quorum-exception/decision

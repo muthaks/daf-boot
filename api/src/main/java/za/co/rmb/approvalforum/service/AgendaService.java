@@ -24,6 +24,24 @@ public interface AgendaService {
 
     AgendaItemDTO bookItem(BookAgendaItemRequest request, String user);
 
+    /**
+     * Books the item. Without full quorum, a reason on the item asks for a quorum exception; it is
+     * approved straight away when the booker is this committee's secretary or chair.
+     */
+    AgendaItemDTO bookItem(BookAgendaItemRequest request, String user, AgendaAccess access);
+
+    /** The item's analyst, before submission, while quorum is not met and no request is pending or approved. */
+    boolean canRequestQuorumException(int agiId, String user);
+
+    /** Asks this committee's secretary and chair for a quorum exception; they are emailed. */
+    AgendaItemDTO requestQuorumException(int agiId, String reason, String user);
+
+    /** This committee's secretary or chair, while a request is pending and the item is not yet approved. */
+    boolean canDecideQuorumException(int agiId, String user, AgendaAccess access);
+
+    /** Approves (the analyst can then submit without full quorum) or declines (a note is required); the analysts are emailed. */
+    AgendaItemDTO decideQuorumException(int agiId, boolean approved, String note, String user, AgendaAccess access);
+
     AgendaItemDTO updateItem(AgendaItemDTO item, String user);
 
     List<AgendaItemDTO> getAllItems();
@@ -78,6 +96,10 @@ public interface AgendaService {
 
     AgendaMeetingDTO lockMeeting(int agmId, String user);
 
+    AgendaMeetingDTO sendInvitation(int agmId, String user);
+
+    AgendaMeetingDTO sendInvitationUpdate(int agmId, String user);
+
     AgendaMeetingDTO setMeetingStatus(int agmId, String status, String user);
 
     AgendaMeetingDTO markMeetingHeld(int agmId, String user);
@@ -108,13 +130,26 @@ public interface AgendaService {
 
     AgendaMeetingDTO cancelMeeting(int agmId, String reason, String user);
 
+    /** Restore a cancelled meeting for editing; a new invitation is sent explicitly. */
+    AgendaMeetingDTO reinstateMeeting(int agmId, String reason, String user);
+
     List<AgendaMeetingDTO> getMeetingsBetween(Timestamp from, Timestamp to);
 
     // ---- review & approval workflow ----
 
     AgendaItemDTO submitItem(int agiId, String quorumOverrideReason, String user);
 
+    /** As {@link #submitItem(int, String, String)}; a quorum override reason is accepted only from the
+     *  item committee's own secretary or chair (their roles in {@code access}). */
+    AgendaItemDTO submitItem(int agiId, String quorumOverrideReason, String user, AgendaAccess access);
+
     AgendaItemDTO returnItem(int agiId, String reason, String user);
+
+    AgendaItemDTO completeReview(int agiId, String comments, String user);
+
+    boolean canReassignReviewer(int agiId, String user, AgendaAccess access);
+
+    AgendaItemDTO reassignReviewer(int agiId, ReassignAgendaReviewerRequest request, String user, AgendaAccess access);
 
     AgendaItemDTO approveItem(int agiId, String comments, String user);
 
@@ -133,6 +168,30 @@ public interface AgendaService {
     List<AgendaParticipantDTO> getParticipants(int agiId);
 
     List<AgendaParticipantDTO> saveParticipants(int agiId, List<AgendaParticipantDTO> participants, String user);
+
+    /**
+     * Whether this user may move the item to another meeting date and change its quorum roster: the
+     * owning analyst or the review analyst assigned to it (holding the reviewer role), until the item
+     * is approved, while its meeting is open (not locked, held, closed or cancelled).
+     */
+    boolean canChangeSchedule(int agiId, String userId, AgendaAccess access);
+
+    /** Moves the item to another meeting date of its committee (or another start time); its status is kept. */
+    AgendaItemDTO moveItem(int agiId, MoveAgendaItemRequest request, String user);
+
+    /** Replaces the item's quorum roster and attendees, including after submission; its status is kept. */
+    AgendaItemDTO updateRoster(int agiId, AgendaItemDTO roster, String user);
+
+    // ---- Booking drafts: the booking wizard saved part-way, owned by the analyst who saved it ----
+
+    List<AgendaBookingDraftDTO> getBookingDrafts(String user);
+
+    AgendaBookingDraftDTO getBookingDraft(int agbdId, String user);
+
+    /** Creates the draft (agbdId 0) or updates the caller's own draft. */
+    AgendaBookingDraftDTO saveBookingDraft(AgendaBookingDraftDTO draft, String user);
+
+    void deleteBookingDraft(int agbdId, String user);
 
     AgendaQuorumResultDTO evaluateQuorum(int agiId);
 

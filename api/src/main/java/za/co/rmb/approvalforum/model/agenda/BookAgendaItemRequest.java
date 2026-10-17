@@ -21,4 +21,9 @@ public class BookAgendaItemRequest {
     public AgendaItemDTO getItem() { return item; }
     public void setItem(AgendaItemDTO item) { this.item = item; }
 
+    /** The saved booking draft this booking was continued from; it is discarded once the item is booked. */
+    private Integer draftId;
+    public Integer getDraftId() { return draftId; }
+    public void setDraftId(Integer draftId) { this.draftId = draftId; }
+
 }

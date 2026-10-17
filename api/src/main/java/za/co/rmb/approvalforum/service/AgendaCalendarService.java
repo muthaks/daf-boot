@@ -7,7 +7,7 @@ import java.util.List;
 /**
  * Creates and maintains the Teams/Outlook meeting for a committee meeting (BRS BR-013).
  * Implemented in approvalforum-web against Microsoft Graph; the service layer only sees this
- * contract so it can be stubbed and so an unconfigured environment degrades gracefully.
+ * contract so it can be stubbed. Sending an invitation requires a successful calendar result.
  */
 public interface AgendaCalendarService {
 
@@ -49,7 +49,7 @@ public interface AgendaCalendarService {
     CalendarEvent createOrUpdateEvent(AgendaMeetingDTO meeting, List<String> attendeeEmails, String agendaHtml,
                                       List<Attachment> attachments);
 
-    /** Cancel the event; no-op when there is none or the integration is not configured. */
+    /** Cancel the event; no-op when there is none. Throw on failure when an event exists. */
     void cancelEvent(AgendaMeetingDTO meeting, String reason);
 
 }

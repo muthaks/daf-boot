@@ -1,3 +1,4 @@
+DELETE /approvalForum/agenda/drafts/{agbdId}
 DELETE /approvalForum/request/wip/{workflowId}
 GET /approvalForum/agenda/casdm/application
 GET /approvalForum/agenda/committees
@@ -8,6 +9,8 @@ GET /approvalForum/agenda/committees/{agcId}/meetings
 GET /approvalForum/agenda/committees/{agcId}/members
 GET /approvalForum/agenda/counterparties
 GET /approvalForum/agenda/documents/{agidId}/download
+GET /approvalForum/agenda/drafts
+GET /approvalForum/agenda/drafts/{agbdId}
 GET /approvalForum/agenda/items
 GET /approvalForum/agenda/items/my
 GET /approvalForum/agenda/items/{agiId}
@@ -27,6 +30,9 @@ GET /approvalForum/approver/{workflowId}
 GET /approvalForum/capturer/{workflowId}
 GET /approvalForum/chairperson/{workflowId}
 GET /approvalForum/chat/{workflowId}
+GET /approvalForum/creditdata/counterparty/classification
+GET /approvalForum/creditdata/countries
+GET /approvalForum/creditdata/industries
 GET /approvalForum/external/ashburton/application
 GET /approvalForum/external/ashburton/counterparties
 GET /approvalForum/external/ashburton/counterpartiesForAshburton
@@ -74,15 +80,19 @@ POST /approvalForum/agenda/committees
 POST /approvalForum/agenda/committees/{agcId}/deactivate
 POST /approvalForum/agenda/conditions/{agcaId}/close
 POST /approvalForum/agenda/documents/{agidId}/validate
+POST /approvalForum/agenda/drafts
 POST /approvalForum/agenda/items
 POST /approvalForum/agenda/items/{agiId}/approve
 POST /approvalForum/agenda/items/{agiId}/document
+POST /approvalForum/agenda/items/{agiId}/meeting
 POST /approvalForum/agenda/items/{agiId}/postMeeting
 POST /approvalForum/agenda/items/{agiId}/postMeeting/unlock
 POST /approvalForum/agenda/items/{agiId}/reject
 POST /approvalForum/agenda/items/{agiId}/remove
 POST /approvalForum/agenda/items/{agiId}/reopen
 POST /approvalForum/agenda/items/{agiId}/return
+POST /approvalForum/agenda/items/{agiId}/review
+POST /approvalForum/agenda/items/{agiId}/reviewer
 POST /approvalForum/agenda/items/{agiId}/submit
 POST /approvalForum/agenda/items/{agiId}/upload
 POST /approvalForum/agenda/meetings
@@ -90,8 +100,11 @@ POST /approvalForum/agenda/meetings/{agmId}/cancel
 POST /approvalForum/agenda/meetings/{agmId}/close
 POST /approvalForum/agenda/meetings/{agmId}/compile
 POST /approvalForum/agenda/meetings/{agmId}/held
+POST /approvalForum/agenda/meetings/{agmId}/invitation
+POST /approvalForum/agenda/meetings/{agmId}/invitation/update
 POST /approvalForum/agenda/meetings/{agmId}/lock
 POST /approvalForum/agenda/meetings/{agmId}/records
+POST /approvalForum/agenda/meetings/{agmId}/reinstate
 POST /approvalForum/agenda/meetings/{agmId}/reopen
 POST /approvalForum/agenda/meetings/{agmId}/reschedule
 POST /approvalForum/agenda/meetings/{agmId}/status
@@ -136,9 +149,11 @@ POST /docstash/process
 POST /docstash/upload
 POST /documents/upload
 PUT /approvalForum/agenda/committees
+PUT /approvalForum/agenda/drafts/{agbdId}
 PUT /approvalForum/agenda/items
 PUT /approvalForum/agenda/items/{agiId}/conditions
 PUT /approvalForum/agenda/items/{agiId}/participants
+PUT /approvalForum/agenda/items/{agiId}/roster
 PUT /approvalForum/agenda/meetings/{agmId}
 PUT /approvalForum/chat/approver
 PUT /approvalForum/chat/capturer

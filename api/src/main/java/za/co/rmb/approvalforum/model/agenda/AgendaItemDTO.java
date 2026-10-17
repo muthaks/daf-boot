@@ -39,6 +39,9 @@ public class AgendaItemDTO {
     private String outOfGuidanceApprovedBy;
     private Timestamp outOfGuidanceApprovedOn;
     private String itemStatus;
+    private Timestamp approvedOn;
+    public Timestamp getApprovedOn() { return approvedOn; }
+    public void setApprovedOn(Timestamp value) { this.approvedOn = value; }
     private String agendaNumber;
 
     private String startTime;
@@ -70,6 +73,9 @@ public class AgendaItemDTO {
     private String lateSubmissionReason;
 
     private List<AgendaItemDocumentDTO> documents;
+    private List<String> requiredDocumentTypes;
+    public List<String> getRequiredDocumentTypes() { return requiredDocumentTypes; }
+    public void setRequiredDocumentTypes(List<String> types) { this.requiredDocumentTypes = types; }
     private AgendaPostMeetingDTO postMeeting;
 
     public int getAgiId() { return agiId; }
@@ -265,6 +271,15 @@ public class AgendaItemDTO {
     public void setPostMeeting(AgendaPostMeetingDTO postMeeting) { this.postMeeting = postMeeting; }
 
     // ---- BRS alignment (V13) ----
+    private boolean canReassignReviewer;
+    public boolean isCanReassignReviewer() { return canReassignReviewer; }
+    public void setCanReassignReviewer(boolean value) { canReassignReviewer = value; }
+
+    /** The caller may move this item to another meeting date and change its quorum roster (see AgendaService). */
+    private boolean canChangeSchedule;
+    public boolean isCanChangeSchedule() { return canChangeSchedule; }
+    public void setCanChangeSchedule(boolean value) { canChangeSchedule = value; }
+
     private String submittedBy;
     private Timestamp submittedOn;
     private String quorumOverrideReason;
@@ -282,6 +297,38 @@ public class AgendaItemDTO {
 
     public String getQuorumOverrideReason() { return quorumOverrideReason; }
     public void setQuorumOverrideReason(String quorumOverrideReason) { this.quorumOverrideReason = quorumOverrideReason; }
+
+    // ---- V16: quorum exception (Requested, Approved or Declined) ----
+    private String quorumExceptionStatus;
+    private String quorumExceptionReason;
+    private String quorumExceptionRequestedBy;
+    private Timestamp quorumExceptionRequestedOn;
+    private String quorumExceptionDecidedBy;
+    private Timestamp quorumExceptionDecidedOn;
+    private String quorumExceptionDecisionNote;
+    /** The caller may ask for a quorum exception on this item (its analyst, before submission, quorum not met). */
+    private boolean canRequestQuorumException;
+    /** The caller may approve or decline the pending request (this committee's secretary or chair). */
+    private boolean canDecideQuorumException;
+
+    public String getQuorumExceptionStatus() { return quorumExceptionStatus; }
+    public void setQuorumExceptionStatus(String value) { quorumExceptionStatus = value; }
+    public String getQuorumExceptionReason() { return quorumExceptionReason; }
+    public void setQuorumExceptionReason(String value) { quorumExceptionReason = value; }
+    public String getQuorumExceptionRequestedBy() { return quorumExceptionRequestedBy; }
+    public void setQuorumExceptionRequestedBy(String value) { quorumExceptionRequestedBy = value; }
+    public Timestamp getQuorumExceptionRequestedOn() { return quorumExceptionRequestedOn; }
+    public void setQuorumExceptionRequestedOn(Timestamp value) { quorumExceptionRequestedOn = value; }
+    public String getQuorumExceptionDecidedBy() { return quorumExceptionDecidedBy; }
+    public void setQuorumExceptionDecidedBy(String value) { quorumExceptionDecidedBy = value; }
+    public Timestamp getQuorumExceptionDecidedOn() { return quorumExceptionDecidedOn; }
+    public void setQuorumExceptionDecidedOn(Timestamp value) { quorumExceptionDecidedOn = value; }
+    public String getQuorumExceptionDecisionNote() { return quorumExceptionDecisionNote; }
+    public void setQuorumExceptionDecisionNote(String value) { quorumExceptionDecisionNote = value; }
+    public boolean isCanRequestQuorumException() { return canRequestQuorumException; }
+    public void setCanRequestQuorumException(boolean value) { canRequestQuorumException = value; }
+    public boolean isCanDecideQuorumException() { return canDecideQuorumException; }
+    public void setCanDecideQuorumException(boolean value) { canDecideQuorumException = value; }
 
     public Timestamp getCutOffOn() { return cutOffOn; }
     public void setCutOffOn(Timestamp cutOffOn) { this.cutOffOn = cutOffOn; }
