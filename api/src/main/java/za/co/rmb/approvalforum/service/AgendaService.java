@@ -78,6 +78,10 @@ public interface AgendaService {
 
     AgendaMeetingDTO lockMeeting(int agmId, String user);
 
+    AgendaMeetingDTO sendInvitation(int agmId, String user);
+
+    AgendaMeetingDTO sendInvitationUpdate(int agmId, String user);
+
     AgendaMeetingDTO setMeetingStatus(int agmId, String status, String user);
 
     AgendaMeetingDTO markMeetingHeld(int agmId, String user);
@@ -108,6 +112,9 @@ public interface AgendaService {
 
     AgendaMeetingDTO cancelMeeting(int agmId, String reason, String user);
 
+    /** Restore a cancelled meeting for editing; a new invitation is sent explicitly. */
+    AgendaMeetingDTO reinstateMeeting(int agmId, String reason, String user);
+
     List<AgendaMeetingDTO> getMeetingsBetween(Timestamp from, Timestamp to);
 
     // ---- review & approval workflow ----
@@ -115,6 +122,12 @@ public interface AgendaService {
     AgendaItemDTO submitItem(int agiId, String quorumOverrideReason, String user);
 
     AgendaItemDTO returnItem(int agiId, String reason, String user);
+
+    AgendaItemDTO completeReview(int agiId, String comments, String user);
+
+    boolean canReassignReviewer(int agiId, String user, AgendaAccess access);
+
+    AgendaItemDTO reassignReviewer(int agiId, ReassignAgendaReviewerRequest request, String user, AgendaAccess access);
 
     AgendaItemDTO approveItem(int agiId, String comments, String user);
 

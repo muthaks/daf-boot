@@ -2,15 +2,26 @@
 
 How the Committee Agendas remote signs a user in to DAF and decides what to show. The DAF backend is unchanged; everything here is what DAF's own Angular 8 UI already does, moved into the remote.
 
-## 1. Why not the platform token
+## 1. Platform sign-in
 
-| Fact                                                     | Consequence                                                                                            |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| DAF's `AuthenticationFilter` parses only DAF's own role token (HMAC, DAF secret) or an SSO token           | An auth-service token is rejected; the shell's token exchange cannot be used                            |
-| DAF issues its role token from a Windows user description (`WindowsAuthDetail`)                            | Any client that can obtain that description from an SSO server can obtain a DAF token                   |
-| The platform shell already performs Windows SSO against the same SSO servers                              | The user signs in once; the remote repeats the silent SSO step for DAF without a second prompt          |
+DAF's `AuthenticationFilter` accepts only DAF's own role token, so the remotes always send that. Hosted in the Credit shell they get it from the platform sign-in, without Windows SSO or a second prompt:
 
-Onboarding DAF to the auth service (a `DAF` system code, ConnectX style) is the later step; when it happens the shell exchanges a DAF token and steps 2 to 4 below disappear. The agenda calls do not change.
+| # | Call                                                               | Who          | Notes                                                                                                                        |
+| - | ------------------------------------------------------------------ | ------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| 1 | `POST /gateway/auth/api/v1/auth/token/exchange {systemCode: DAF}`  | shell        | The platform token exchanged for a token for the `DAF` system (shell registry API entry `daf-platform-token`)                 |
+| 2 | `POST /daf/auth/platformToken` with that token as bearer           | remote → DAF | DAF verifies it (signature with DAF's signing secret, expiry, `systemCode` DAF, user not system token)                       |
+| 3 | AD lookup of the user by domain and account                        | DAF          | Through the auth service, as for every DAF AD call; nothing about the user is taken from the request                         |
+| 4 | DAF's own `/auth/tenant` and `/auth/ssoToken` logic                | DAF          | Same tenant and roles as a Windows SSO sign-in; answers `{Token, tenantId, domain, displayName}`, or 401 `{reason}`          |
+
+| DAF setting                         | Use                                                                                                                       |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `AF_SYSTEM_CALLER`                  | DAF's system code on the auth service (`DAF`); only tokens issued for it are accepted                                    |
+| `AF_SYSTEM_BOOTSTRAP_CLIENT_SECRET` | DAF's bootstrap client secret: exchanged at `<AF_AUTHSERVICE_BASE>/api/v1/auth/bootstrap` for DAF's JWT signing secret, fetched again after a rotation |
+| `AF_AUTHSERVICE_BASE`               | The auth service through the gateway                                                                                      |
+| `AF_PLATFORM_TOKEN_ISSUER`          | Optional: the `iss` the auth service stamps (`JWT_ISSUER`); blank = not checked                                           |
+| `MAX_HTTP_HEADER_SIZE`              | Default 65536: the exchanged token carries the user's groups (DAF has no group scope on the auth service)                |
+
+When the platform sign-in is refused (DAF unreachable, settings missing, user not in AD) the hosted remote falls back to the Windows SSO sequence below.
 
 ## 2. Sign-in sequence
 
@@ -26,7 +37,7 @@ Onboarding DAF to the auth service (a `DAF` system code, ConnectX style) is the 
 | Mode       | Where sign-in happens                                                                                                  |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Standalone | `features/auth/login.component` on the co-ds login page: silent SSO once per tab, otherwise credentials via `loginpost` |
-| Hosted     | `dafSessionGuard` → `SessionService.ensure()` runs steps 1 to 4 silently. On failure pages render an error state pointing to the standalone sign-in; the shell viewport is never blank |
+| Hosted     | `dafSessionGuard` → `SessionService.ensure()` runs the platform sign-in (section 1), otherwise steps 1 to 4 silently. On failure pages render an error state pointing to the standalone sign-in; the shell viewport is never blank |
 
 Token and user live in `sessionStorage` (`daf.session.token`, `daf.session.user`) for the tab. `daf.sso_failed` stops silent SSO after a failure or sign-out.
 
@@ -66,7 +77,10 @@ DAF's own UI uses the same endpoints. Worth a ticket for the DAF team, independe
 
 | Symptom                                                        | Meaning                                                                                      |
 | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Hosted: "DAF could not sign you in with Windows SSO"           | No SSO server answered `userdetail` for this browser. Open the standalone URL and use credentials |
+| Hosted: "DAF did not accept your platform sign-in, and Windows SSO could not sign you in" | `POST /daf/auth/platformToken` was refused (see its `reason` and the daf-api log) and no SSO server answered `userdetail`. Open the standalone URL and use credentials |
+| `platformToken` 401 "not configured"                           | `AF_SYSTEM_CALLER`, `AF_SYSTEM_BOOTSTRAP_CLIENT_SECRET` or `AF_AUTHSERVICE_BASE` blank on daf-api                             |
+| `platformToken` 401 "A platform token for DAF is required"     | No exchanged token, a token for another system, or the signing secret could not be fetched (daf-api log: "Platform token key") |
+| `platformToken` 400 from Tomcat                                | Header larger than `MAX_HTTP_HEADER_SIZE`                                                                                     |
 | 401 on every agenda call                                       | DAF token missing or expired; sign in again                                                  |
 | 403 / "no agenda role"                                         | Token has none of the five DAF roles; DAF AD groups (`OU=DAF`) decide                          |
 | Gateway 502 on `/gateway/daf/...`                              | `DAF_API_HOST` wrong or DAF down; `GET /gateway/daf/auth/ping` should answer 200              |

@@ -22,6 +22,8 @@ public interface AgendaMailService {
 
     void sendItemSubmittedMail(AgendaItemDTO item, String reviewerEmails);
 
+    void sendItemReviewedMail(AgendaItemDTO item, String approverIds);
+
     void sendItemReturnedMail(AgendaItemDTO item, String reason);
 
     void sendItemApprovedMail(AgendaItemDTO item);

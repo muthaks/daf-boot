@@ -17,6 +17,8 @@ import za.co.rmb.approvalforum.web.resources.ApprovalForumResource;
 import za.co.rmb.approvalforum.web.resources.ApprovalForumSchedulerResource;
 import za.co.rmb.approvalforum.web.resources.GitResource;
 import za.co.rmb.credit.daf.jaxrs.multipart.MultipartFormDataInputReader;
+import za.co.rmb.credit.daf.platform.PlatformTokenHeaderFilter;
+import za.co.rmb.credit.daf.platform.PlatformTokenResource;
 import za.co.rmb.credit.daf.support.RestEasyBehaviour;
 
 /**
@@ -25,7 +27,8 @@ import za.co.rmb.credit.daf.support.RestEasyBehaviour;
  * {@code /approvalforum/api/...}.
  *
  * <p>Only {@link AuthenticationFilter} is registered, as in legacy: the legacy AuthorizationFilter was
- * never bound, and resources check the caller themselves.</p>
+ * never bound, and resources check the caller themselves. The platform sign-in ({@code /auth/platformToken})
+ * is the one addition: its filter only takes that path's bearer away from AuthenticationFilter.</p>
  */
 @Component
 @ApplicationPath("/api")
@@ -42,6 +45,9 @@ public class JerseyConfig extends ResourceConfig {
         register(ApprovalForumAuthResource.class);
         register(ApprovalForumAgendaResource.class);
         register(ApprovalForumCreditDataResource.class);
+        // Not legacy: a DAF session for a user signed in to the Credit platform (auth-service token for DAF)
+        register(PlatformTokenResource.class);
+        register(PlatformTokenHeaderFilter.class);
         register(AuthenticationFilter.class);
         register(MultiPartFeature.class);
         register(MultipartFormDataInputReader.class);

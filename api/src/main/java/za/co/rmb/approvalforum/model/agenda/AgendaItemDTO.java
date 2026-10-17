@@ -39,6 +39,9 @@ public class AgendaItemDTO {
     private String outOfGuidanceApprovedBy;
     private Timestamp outOfGuidanceApprovedOn;
     private String itemStatus;
+    private Timestamp approvedOn;
+    public Timestamp getApprovedOn() { return approvedOn; }
+    public void setApprovedOn(Timestamp value) { this.approvedOn = value; }
     private String agendaNumber;
 
     private String startTime;
@@ -70,6 +73,9 @@ public class AgendaItemDTO {
     private String lateSubmissionReason;
 
     private List<AgendaItemDocumentDTO> documents;
+    private List<String> requiredDocumentTypes;
+    public List<String> getRequiredDocumentTypes() { return requiredDocumentTypes; }
+    public void setRequiredDocumentTypes(List<String> types) { this.requiredDocumentTypes = types; }
     private AgendaPostMeetingDTO postMeeting;
 
     public int getAgiId() { return agiId; }
@@ -265,6 +271,10 @@ public class AgendaItemDTO {
     public void setPostMeeting(AgendaPostMeetingDTO postMeeting) { this.postMeeting = postMeeting; }
 
     // ---- BRS alignment (V13) ----
+    private boolean canReassignReviewer;
+    public boolean isCanReassignReviewer() { return canReassignReviewer; }
+    public void setCanReassignReviewer(boolean value) { canReassignReviewer = value; }
+
     private String submittedBy;
     private Timestamp submittedOn;
     private String quorumOverrideReason;

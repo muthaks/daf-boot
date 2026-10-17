@@ -37,10 +37,11 @@ public class AgendaServiceImpl implements AgendaService {
     private static final Logger logger = LoggerFactory.getLogger(AgendaServiceImpl.class);
 
     // Item lifecycle (BRS section 6.3): Captured -> Confirmed (mandatory papers in) -> Submitted
-    // -> Returned (back to the analyst) / Approved (on the agenda) / Rejected. Removed = dropped.
+    // -> Returned (corrections) / Reviewed (independent review complete) -> Approved / Rejected. Removed = dropped.
     static final String STATUS_CAPTURED = "Captured";
     static final String STATUS_CONFIRMED = "Confirmed";
     static final String STATUS_SUBMITTED = "Submitted";
+    static final String STATUS_REVIEWED = "Reviewed";
     static final String STATUS_RETURNED = "Returned";
     static final String STATUS_APPROVED = "Approved";
     static final String STATUS_REJECTED = "Rejected";
@@ -329,22 +330,27 @@ public class AgendaServiceImpl implements AgendaService {
         }
         assertVenueForMode(meeting.getHeldVia(), meeting.getVenue());
         meeting = agendaRepository.saveMeeting(meeting);
-        // Keep the Teams/Outlook event in step once one exists (locked agendas already issued).
-        if (meeting.getGraphEventId() != null) {
-            syncCalendarEvent(meeting, dateChanged ? "rescheduled" : "updated");
-        }
+        // Calendar changes are sent only by the explicit Send update action.
         return toMeetingDTO(meeting, true);
     }
 
     @Override
     public AgendaMeetingDTO cancelMeeting(int agmId, String reason, String user) {
-        ApprovalForumAgmAgendaMeetingEntity meeting = agendaRepository.getMeeting(agmId);
+        ApprovalForumAgmAgendaMeetingEntity meeting = agendaRepository.getMeetingForUpdate(agmId);
         if (meeting == null) {
             throw new IllegalArgumentException("Unknown meeting: " + agmId);
         }
         assertMeetingNotHeld(meeting);
         assertMeetingNotCancelled(meeting);
         requireText(reason, "A cancellation reason is required");
+        if (!isBlank(meeting.getGraphEventId())) {
+            try {
+                calendarService.cancelEvent(toMeetingDTO(meeting, true), reason);
+            } catch (Exception ex) {
+                logger.error("Calendar cancellation failed for meeting {}", agmId, ex);
+                throw new IllegalStateException("The calendar invitation could not be cancelled. The meeting is still active. Try again, or contact support if the problem continues.");
+            }
+        }
         String from = meeting.getStatus();
         meeting.setStatus(MEETING_CANCELLED);
         meeting.setCancelledBy(user);
@@ -354,16 +360,38 @@ public class AgendaServiceImpl implements AgendaService {
         recordAction(null, agmId, ACTION_CANCEL, from, MEETING_CANCELLED, reason, false, null, user);
         AgendaMeetingDTO saved = toMeetingDTO(meeting, true);
         try {
-            calendarService.cancelEvent(saved, reason);
-        } catch (Exception ex) {
-            logger.error("Calendar cancel failed for meeting {}: {}", agmId, ex.getMessage(), ex);
-        }
-        try {
             agendaMailService.sendMeetingCancelledMail(saved, collectAttendeeEmails(agmId), reason);
         } catch (Exception ex) {
             logger.error("Meeting cancelled mail failed for meeting {}: {}", agmId, ex.getMessage(), ex);
         }
         return saved;
+    }
+
+    @Override
+    public AgendaMeetingDTO reinstateMeeting(int agmId, String reason, String user) {
+        ApprovalForumAgmAgendaMeetingEntity meeting = agendaRepository.getMeetingForUpdate(agmId);
+        if (meeting == null) throw new IllegalArgumentException("Unknown meeting: " + agmId);
+        if (!MEETING_CANCELLED.equals(meeting.getStatus())) {
+            throw new IllegalStateException("Only a cancelled meeting can be reinstated.");
+        }
+        requireText(reason, "Give the reason for reinstating this meeting.");
+        if (reason.trim().length() > 1000) throw new IllegalStateException("The reinstatement reason must be 1000 characters or fewer.");
+        // Retain cancellation metadata and audit history. Its timestamp gives the next invitation
+        // a new stable transaction identity, so Graph cannot reuse the cancelled calendar event.
+        if (meeting.getCancelledOn() == null) meeting.setCancelledOn(now());
+        meeting.setStatus(MEETING_DRAFT);
+        meeting.setLockedOn(null);
+        meeting.setLockedBy(null);
+        meeting.setGraphEventId(null);
+        meeting.setTeamsJoinUrl(null);
+        meeting.setInvitationSnapshot(null);
+        meeting.setInvitationSentOn(null);
+        meeting.setInvitationSentBy(null);
+        meeting.setInvitationReopened(false);
+        meeting = agendaRepository.saveMeeting(meeting);
+        recordAction(null, agmId, "Reinstate", MEETING_CANCELLED, MEETING_DRAFT, reason.trim(), false, null, user);
+        // Reinstatement changes no items or document decisions, and sends nothing to attendees.
+        return toMeetingDTO(meeting, true);
     }
 
     @Override
@@ -476,11 +504,19 @@ public class AgendaServiceImpl implements AgendaService {
             throw new IllegalStateException("Meeting date is required");
         }
         assertNotInPast(request.getMeetingDate().toLocalDateTime().toLocalDate());
+        java.time.DayOfWeek bookingDay = request.getMeetingDate().toLocalDateTime().getDayOfWeek();
+        if (bookingDay == java.time.DayOfWeek.SATURDAY || bookingDay == java.time.DayOfWeek.SUNDAY)
+            throw new IllegalStateException("Weekends are unavailable. Choose a weekday for the meeting date");
+        AgendaItemDTO dto = request.getItem();
+        AgendaTeamValidation.validate(dto, user);
+        prepareBookingSlot(dto);
+        agendaRepository.lockCommitteeBookings(request.getAgcId());
 
         ApprovalForumAgmAgendaMeetingEntity meeting = agendaRepository.findMeeting(request.getAgcId(), request.getMeetingDate());
         assertMeetingNotHeld(meeting);
         assertMeetingNotCancelled(meeting);
         assertMeetingNotLocked(meeting);
+        requireLateReason(meeting == null ? cutOffFor(committee, request.getMeetingDate()) : meeting.getCutOffOn(), dto.getLateSubmissionReason());
         if (meeting == null) {
             LocalDate date = request.getMeetingDate().toLocalDateTime().toLocalDate();
             if (!isEffectiveOn(committee, date)) {
@@ -501,10 +537,14 @@ public class AgendaServiceImpl implements AgendaService {
             meeting = agendaRepository.saveMeeting(meeting);
         }
 
-        AgendaItemDTO dto = request.getItem();
         assertNoOverlappingSlot(meeting.getAgmId(), null, dto.getStartTime(), dto.getEndTime());
         ApprovalForumAgiAgendaItemEntity item = new ApprovalForumAgiAgendaItemEntity();
         applyItemFields(item, dto);
+        // Preserve the requested justification from booking. Submission still requires an
+        // explicit override parameter and the resource enforces secretariat/chair permission.
+        if (!isBlank(dto.getQuorumOverrideReason())) {
+            item.setQuorumOverrideReason(dto.getQuorumOverrideReason().trim());
+        }
         applyLateSubmission(item, meeting, dto.getLateSubmissionReason());
         item.setAgmAgendaMeetingByAgmId(meeting);
         item.setItemStatus(STATUS_CAPTURED);
@@ -536,6 +576,9 @@ public class AgendaServiceImpl implements AgendaService {
         assertMeetingNotLocked(item.getAgmAgendaMeetingByAgmId());
         assertMeetingNotHeld(item.getAgmAgendaMeetingByAgmId());
         assertItemEditable(item);
+        AgendaTeamValidation.validate(dto, item.getCreatedBy());
+        if (!isBlank(dto.getStartTime()) || !isBlank(item.getStartTime())) prepareBookingSlot(dto);
+        agendaRepository.lockCommitteeBookings(item.getAgmAgendaMeetingByAgmId().getAgcAgendaCommitteeByAgcId().getAgcId());
         assertNoOverlappingSlot(item.getAgmAgendaMeetingByAgmId().getAgmId(), item.getAgiId(),
                 dto.getStartTime(), dto.getEndTime());
         applyItemFields(item, dto);
@@ -554,7 +597,7 @@ public class AgendaServiceImpl implements AgendaService {
     /** Only the analyst-owned states may be edited; submitted/approved items go through the workflow. */
     private void assertItemEditable(ApprovalForumAgiAgendaItemEntity item) {
         String status = item.getItemStatus();
-        if (STATUS_SUBMITTED.equals(status) || STATUS_APPROVED.equals(status)
+        if (STATUS_SUBMITTED.equals(status) || STATUS_REVIEWED.equals(status) || STATUS_APPROVED.equals(status)
                 || STATUS_REJECTED.equals(status) || STATUS_REMOVED.equals(status)) {
             throw new IllegalStateException("Agenda item " + item.getAgiId() + " is " + status
                     + " - it must be returned or re-opened before it can be edited");
@@ -565,6 +608,13 @@ public class AgendaServiceImpl implements AgendaService {
      * RULE-003: late is decided by the system against the meeting cut-off, never by the user, and
      * a late submission must carry a reason.
      */
+    private void requireLateReason(Timestamp cutOff, String reason) {
+        if (cutOff != null && now().after(cutOff) && isBlank(reason))
+            throw new IllegalStateException("This is a late submission (cut-off was "
+                    + cutOff.toLocalDateTime().toLocalDate() + " " + formatTime(cutOff.toLocalDateTime().toLocalTime())
+                    + ") - a late submission reason is required");
+    }
+
     private void applyLateSubmission(ApprovalForumAgiAgendaItemEntity item, ApprovalForumAgmAgendaMeetingEntity meeting, String reason) {
         boolean late = meeting != null && meeting.getCutOffOn() != null && now().after(meeting.getCutOffOn());
         item.setLateSubmission(late);
@@ -633,7 +683,7 @@ public class AgendaServiceImpl implements AgendaService {
     /** Submitted at least once, so an approver has a reason to look at it. */
     private boolean hasBeenSubmitted(ApprovalForumAgiAgendaItemEntity item) {
         String status = item == null ? null : item.getItemStatus();
-        return STATUS_SUBMITTED.equals(status) || STATUS_APPROVED.equals(status)
+        return STATUS_SUBMITTED.equals(status) || STATUS_REVIEWED.equals(status) || STATUS_APPROVED.equals(status)
                 || STATUS_REJECTED.equals(status) || STATUS_RETURNED.equals(status);
     }
 
@@ -835,12 +885,26 @@ public class AgendaServiceImpl implements AgendaService {
 
     @Override
     public AgendaItemDocumentDTO validateDocument(int agidId, String status, String comment, String user) {
-        ApprovalForumAgidAgendaItemDocumentEntity document = agendaRepository.getDocument(agidId);
+        ApprovalForumAgidAgendaItemDocumentEntity document = agendaRepository.getDocumentForValidation(agidId);
         if (document == null) {
             throw new IllegalArgumentException("Unknown document: " + agidId);
         }
+        AgendaTeamValidation.requireIndependentReviewer(document.getAgiAgendaItemByAgiId(), user);
         if (!DOC_ACCEPTED.equals(status) && !DOC_REJECTED.equals(status) && !DOC_PENDING.equals(status)) {
             throw new IllegalStateException("Validation status must be Pending, Accepted or Rejected");
+        }
+        String existing = document.getValidationStatus();
+        if (DOC_ACCEPTED.equals(existing) || DOC_REJECTED.equals(existing)) {
+            if (existing.equals(status)) return toDocumentDTO(document); // Idempotent retries preserve the recorded decision.
+            throw new IllegalStateException("This document version has already been " + existing.toLowerCase(Locale.ROOT)
+                    + ". Upload a new version for another document review.");
+        }
+        if (DOC_SUPERSEDED.equals(existing)) {
+            throw new IllegalStateException("A superseded document version cannot be reviewed");
+        }
+        String itemStatus = document.getAgiAgendaItemByAgiId() == null ? null : document.getAgiAgendaItemByAgiId().getItemStatus();
+        if (STATUS_REVIEWED.equals(itemStatus) || STATUS_APPROVED.equals(itemStatus) || STATUS_REJECTED.equals(itemStatus) || STATUS_REMOVED.equals(itemStatus)) {
+            throw new IllegalStateException("The submission review is closed. Re-open the item before reviewing a new document version.");
         }
         if (DOC_REJECTED.equals(status)) {
             requireText(comment, "A comment is required when rejecting a document");
@@ -886,6 +950,14 @@ public class AgendaServiceImpl implements AgendaService {
         return true;
     }
 
+    /** Every configured required type must have a currently accepted version. */
+    private boolean mandatoryDocumentsAccepted(ApprovalForumAgiAgendaItemEntity item) {
+        List<ApprovalForumAgidAgendaItemDocumentEntity> documents = agendaRepository.getDocumentsForItem(item.getAgiId());
+        return requiredDocTypes(committeeOf(item)).stream().allMatch(required -> documents.stream().anyMatch(document ->
+                document.getDocType() != null && document.getDocType().equalsIgnoreCase(required)
+                        && DOC_ACCEPTED.equals(document.getValidationStatus())));
+    }
+
     private List<String> missingMandatoryDocuments(ApprovalForumAgiAgendaItemEntity item) {
         List<ApprovalForumAgidAgendaItemDocumentEntity> documents = agendaRepository.getDocumentsForItem(item.getAgiId());
         List<String> missing = new ArrayList<>();
@@ -906,6 +978,7 @@ public class AgendaServiceImpl implements AgendaService {
     @Override
     public AgendaItemDTO submitItem(int agiId, String quorumOverrideReason, String user) {
         ApprovalForumAgiAgendaItemEntity item = requireItem(agiId);
+        AgendaTeamValidation.validate(item);
         ApprovalForumAgmAgendaMeetingEntity meeting = item.getAgmAgendaMeetingByAgmId();
         assertMeetingNotLocked(meeting);
         assertMeetingNotHeld(meeting);
@@ -960,7 +1033,8 @@ public class AgendaServiceImpl implements AgendaService {
 
     @Override
     public AgendaItemDTO returnItem(int agiId, String reason, String user) {
-        ApprovalForumAgiAgendaItemEntity item = requireItem(agiId);
+        ApprovalForumAgiAgendaItemEntity item = requireItemForUpdate(agiId);
+        AgendaTeamValidation.requireIndependentReviewer(item, user);
         assertMeetingNotHeld(item.getAgmAgendaMeetingByAgmId());
         requireText(reason, "A reason is required to return an agenda item");
         String from = item.getItemStatus();
@@ -980,13 +1054,97 @@ public class AgendaServiceImpl implements AgendaService {
     }
 
     @Override
+    public boolean canReassignReviewer(int agiId, String user, AgendaAccess access) {
+        ApprovalForumAgiAgendaItemEntity item = agendaRepository.getItem(agiId);
+        if (item == null || !item.isActive() || !STATUS_SUBMITTED.equals(item.getItemStatus())) return false;
+        ApprovalForumAgmAgendaMeetingEntity meeting = item.getAgmAgendaMeetingByAgmId();
+        if (meeting == null || (!MEETING_DRAFT.equals(meeting.getStatus()) && !MEETING_COMPILED.equals(meeting.getStatus()))) return false;
+        AgendaAccess roles = access == null ? AgendaAccess.none() : access;
+        ApprovalForumAgcAgendaCommitteeEntity committee = committeeOf(item);
+        return (roles.isSecretary() && servesAsSecretary(committee, user))
+                || (roles.isChairperson() && servesAsChair(committee, user));
+    }
+
+    @Override
+    public AgendaItemDTO reassignReviewer(int agiId, ReassignAgendaReviewerRequest request, String user, AgendaAccess access) {
+        ApprovalForumAgiAgendaItemEntity item = requireItemForUpdate(agiId);
+        if (!canReassignReviewer(agiId, user, access)) {
+            throw new IllegalStateException("Only this committee's secretary or chair may reassign an item awaiting review on an open agenda.");
+        }
+        if (request == null) throw new IllegalStateException("Choose a new reviewer and give a reason for reassignment.");
+        requireText(request.getReviewerId(), "Choose the new reviewer from the directory.");
+        requireText(request.getReviewerName(), "Choose the new reviewer from the directory.");
+        requireText(request.getReason(), "Give a reason for reassigning the reviewer.");
+        if (request.getReviewerId().length() > 255 || request.getReviewerName().length() > 255 || request.getReason().length() > 1000)
+            throw new IllegalStateException("The reviewer or reason is too long.");
+        String newId = request.getReviewerId().trim();
+        if (AgendaTeamValidation.sameAccount(newId, item.getReviewAnalystId())) {
+            if (!AgendaTeamValidation.sameAccount(request.getExpectedReviewerId(), item.getReviewAnalystId())) return toItemDTO(item, true);
+            throw new IllegalStateException("Choose a different review analyst.");
+        }
+        if (!AgendaTeamValidation.sameAccount(request.getExpectedReviewerId(), item.getReviewAnalystId()))
+            throw new IllegalStateException("The assigned reviewer has changed. Refresh the item before trying again.");
+        AgendaItemDTO candidate = new AgendaItemDTO();
+        candidate.setPrimaryAnalyst(item.getPrimaryAnalyst());
+        candidate.setPrimaryAnalystId(item.getPrimaryAnalystId());
+        candidate.setReviewAnalyst(request.getReviewerName().trim());
+        candidate.setReviewAnalystId(newId);
+        candidate.setCreditSponsor(item.getCreditSponsor());
+        candidate.setCreditSponsorId(item.getCreditSponsorId());
+        candidate.setBuHead(item.getBuHead());
+        candidate.setBuHeadId(item.getBuHeadId());
+        AgendaTeamValidation.validate(candidate, item.getCreatedBy());
+        String from = item.getReviewAnalyst() + " (" + item.getReviewAnalystId() + ")";
+        item.setReviewAnalyst(candidate.getReviewAnalyst());
+        item.setReviewAnalystId(newId);
+        item = agendaRepository.saveItem(item);
+        recordAction(agiId, null, "ReassignReviewer", STATUS_SUBMITTED, STATUS_SUBMITTED,
+                "Reviewer changed from " + from + " to " + item.getReviewAnalyst() + " (" + newId + "). Reason: " + request.getReason().trim(),
+                true, request.getReason().trim(), user);
+        return toItemDTO(item, true);
+    }
+
+    @Override
+    public AgendaItemDTO completeReview(int agiId, String comments, String user) {
+        ApprovalForumAgiAgendaItemEntity item = requireItemForUpdate(agiId);
+        AgendaTeamValidation.requireIndependentReviewer(item, user);
+        assertMeetingNotHeld(item.getAgmAgendaMeetingByAgmId());
+        assertMeetingNotCancelled(item.getAgmAgendaMeetingByAgmId());
+        if (!STATUS_SUBMITTED.equals(item.getItemStatus())) {
+            throw new IllegalStateException("Only a submitted item can complete review; resubmission starts a fresh review");
+        }
+        AgendaTeamValidation.validate(item);
+        if (!mandatoryDocumentsAccepted(item)) {
+            throw new IllegalStateException("Accept all required document versions before completing the submission review");
+        }
+        item.setItemStatus(STATUS_REVIEWED);
+        item = agendaRepository.saveItem(item);
+        recordAction(agiId, null, "Review", STATUS_SUBMITTED, STATUS_REVIEWED, comments, false, null, user);
+        AgendaItemDTO saved = toItemDTO(item, true);
+        ApprovalForumAgcAgendaCommitteeEntity committee = committeeOf(item);
+        try {
+            agendaMailService.sendItemReviewedMail(saved, committee == null ? "" :
+                    (committee.getChairId() == null ? "" : committee.getChairId()) + ";"
+                            + (committee.getMeetingSecretaryId() == null ? "" : committee.getMeetingSecretaryId()));
+        } catch (Exception ex) {
+            logger.error("Item reviewed mail failed for item {}: {}", agiId, ex.getMessage(), ex);
+        }
+        return saved;
+    }
+
+    @Override
     public AgendaItemDTO approveItem(int agiId, String comments, String user) {
         ApprovalForumAgiAgendaItemEntity item = requireItem(agiId);
+        AgendaTeamValidation.requireIndependentReviewer(item, user);
         assertMeetingNotHeld(item.getAgmAgendaMeetingByAgmId());
         assertMeetingNotCancelled(item.getAgmAgendaMeetingByAgmId());
         String from = item.getItemStatus();
-        if (!STATUS_SUBMITTED.equals(from)) {
-            throw new IllegalStateException("Only a submitted agenda item can be approved (item " + agiId + " is " + from + ")");
+        if (!STATUS_REVIEWED.equals(from)) {
+            throw new IllegalStateException("Complete the independent submission review before this agenda item can be approved (item " + agiId + " is " + from + ")");
+        }
+        AgendaTeamValidation.validate(item);
+        if (!mandatoryDocumentsAccepted(item)) {
+            throw new IllegalStateException("Accept all required document versions before approving this agenda item");
         }
         item.setItemStatus(STATUS_APPROVED);
         if (item.isLateSubmission() && item.getLateApprovedOn() == null) {
@@ -1007,11 +1165,12 @@ public class AgendaServiceImpl implements AgendaService {
     @Override
     public AgendaItemDTO rejectItem(int agiId, String reason, String user) {
         ApprovalForumAgiAgendaItemEntity item = requireItem(agiId);
+        AgendaTeamValidation.requireIndependentReviewer(item, user);
         assertMeetingNotHeld(item.getAgmAgendaMeetingByAgmId());
         requireText(reason, "A reason is required to reject an agenda item");
         String from = item.getItemStatus();
-        if (!STATUS_SUBMITTED.equals(from)) {
-            throw new IllegalStateException("Only a submitted agenda item can be rejected (item " + agiId + " is " + from + ")");
+        if (!STATUS_REVIEWED.equals(from)) {
+            throw new IllegalStateException("Only a reviewed agenda item can be rejected (item " + agiId + " is " + from + ")");
         }
         item.setItemStatus(STATUS_REJECTED);
         item = agendaRepository.saveItem(item);
@@ -1031,13 +1190,13 @@ public class AgendaServiceImpl implements AgendaService {
      */
     @Override
     public AgendaItemDTO reopenItem(int agiId, String reason, String user) {
-        ApprovalForumAgiAgendaItemEntity item = requireItem(agiId);
+        ApprovalForumAgiAgendaItemEntity item = requireItemForUpdate(agiId);
         ApprovalForumAgmAgendaMeetingEntity meeting = item.getAgmAgendaMeetingByAgmId();
         assertMeetingNotHeld(meeting);
         assertMeetingNotCancelled(meeting);
         requireText(reason, "A reason is required to re-open an agenda item");
         String from = item.getItemStatus();
-        if (!STATUS_SUBMITTED.equals(from) && !STATUS_APPROVED.equals(from) && !STATUS_REJECTED.equals(from)) {
+        if (!STATUS_SUBMITTED.equals(from) && !STATUS_REVIEWED.equals(from) && !STATUS_APPROVED.equals(from) && !STATUS_REJECTED.equals(from)) {
             throw new IllegalStateException("Agenda item " + agiId + " is " + from + " and does not need re-opening");
         }
         boolean override = meeting != null && MEETING_LOCKED.equals(meeting.getStatus());
@@ -1051,6 +1210,12 @@ public class AgendaServiceImpl implements AgendaService {
     @Override
     public List<AgendaWorkflowActionDTO> getWorkflowActions(int agiId) {
         return agendaRepository.getWorkflowActionsForItem(agiId).stream().map(this::toActionDTO).collect(Collectors.toList());
+    }
+
+    private ApprovalForumAgiAgendaItemEntity requireItemForUpdate(int agiId) {
+        ApprovalForumAgiAgendaItemEntity item = agendaRepository.getItemForUpdate(agiId);
+        if (item == null) throw new IllegalArgumentException("Unknown agenda item: " + agiId);
+        return item;
     }
 
     private ApprovalForumAgiAgendaItemEntity requireItem(int agiId) {
@@ -1136,6 +1301,10 @@ public class AgendaServiceImpl implements AgendaService {
         assertMeetingNotLocked(meeting);
         assertMeetingNotHeld(meeting);
         assertMeetingNotCancelled(meeting);
+        // A retry must not renumber items or send the preliminary agenda again.
+        if (MEETING_COMPILED.equals(meeting.getStatus())) {
+            return toMeetingDTO(meeting, true);
+        }
 
         // Items are numbered <levelDigit>.<sequence> per the spec (1.1, 1.2 under L1; 2.1 under L2).
         String level = meeting.getAgcAgendaCommitteeByAgcId().getMandateLevel();
@@ -1147,7 +1316,7 @@ public class AgendaServiceImpl implements AgendaService {
         // Only approved items are compiled onto the agenda (BR-010); items still in review are
         // left unnumbered and reported back so the secretary can chase them.
         List<ApprovalForumAgiAgendaItemEntity> pending = agendaRepository.getItemsForMeeting(agmId).stream()
-                .filter(i -> STATUS_SUBMITTED.equals(i.getItemStatus()))
+                .filter(i -> STATUS_SUBMITTED.equals(i.getItemStatus()) || STATUS_REVIEWED.equals(i.getItemStatus()))
                 .collect(Collectors.toList());
         if (!pending.isEmpty()) {
             throw new IllegalStateException("Cannot compile - " + pending.size() + " item(s) still await review/approval: "
@@ -1195,12 +1364,7 @@ public class AgendaServiceImpl implements AgendaService {
         meeting.setStatus(MEETING_COMPILED);
         meeting = agendaRepository.saveMeeting(meeting);
 
-        // Invite the captured attendees to review the preliminary agenda (spec section 7).
-        try {
-            agendaMailService.sendPreliminaryAgendaMail(toMeetingDTO(meeting, false), collectAttendeeEmails(agmId));
-        } catch (Exception ex) {
-            logger.error("Preliminary agenda mail failed for meeting {}: {}", agmId, ex.getMessage(), ex);
-        }
+        // Compilation is preparation only; attendees are notified through explicit send actions.
 
         return toMeetingDTO(meeting, true);
     }
@@ -1252,31 +1416,64 @@ public class AgendaServiceImpl implements AgendaService {
             throw new IllegalStateException("Meeting " + agmId
                     + " must be compiled before it can be locked - compile the agenda first");
         }
+        if (isBlank(meeting.getGraphEventId())) {
+            throw new IllegalStateException("Send the calendar invitation before locking the agenda.");
+        }
         meeting.setStatus(MEETING_LOCKED);
         meeting.setLockedBy(user);
         meeting.setLockedOn(now());
         meeting = agendaRepository.saveMeeting(meeting);
         recordAction(null, agmId, ACTION_LOCK, MEETING_COMPILED, MEETING_LOCKED, null, false, null, user);
 
-        // BR-013: create (or refresh) the Teams/Outlook meeting now that the agenda is final.
-        syncCalendarEvent(meeting, "locked");
         AgendaMeetingDTO saved = toMeetingDTO(meeting, true);
 
-        // The agenda is final - send it to all captured attendees (spec section 7).
-        try {
-            agendaMailService.sendFinalAgendaMail(saved, collectAttendeeEmails(agmId));
-        } catch (Exception ex) {
-            logger.error("Final agenda mail failed for meeting {}: {}", agmId, ex.getMessage(), ex);
-        }
         return saved;
     }
 
-    /** Create or update the calendar event for a meeting; failures are logged, never fatal. */
-    private void syncCalendarEvent(ApprovalForumAgmAgendaMeetingEntity meeting, String trigger) {
+    @Override
+    public AgendaMeetingDTO sendInvitation(int agmId, String user) {
+        return deliverInvitation(agmId, user, false);
+    }
+
+    @Override
+    public AgendaMeetingDTO sendInvitationUpdate(int agmId, String user) {
+        return deliverInvitation(agmId, user, true);
+    }
+
+    private AgendaMeetingDTO deliverInvitation(int agmId, String user, boolean update) {
+        ApprovalForumAgmAgendaMeetingEntity meeting = agendaRepository.getMeetingForUpdate(agmId);
+        if (meeting == null) throw new IllegalArgumentException("Unknown meeting: " + agmId);
+        assertMeetingNotHeld(meeting);
+        assertMeetingNotCancelled(meeting);
+        boolean sent = !isBlank(meeting.getGraphEventId());
+        if (update && !sent) throw new IllegalStateException("Send the invitation before sending an update.");
+        AgendaMeetingDTO current = toMeetingDTO(meeting, true);
+        // Repeated clicks on an already completed action do not notify attendees again.
+        if ((!update && sent) || (update && !current.isInvitationNeedsUpdate())) return current;
+        if (isBlank(collectAttendeeEmails(agmId))) {
+            throw new IllegalStateException("Add attendees with email addresses before sending the invitation.");
+        }
+        String snapshot = invitationSnapshot(current);
+        AgendaCalendarService.CalendarEvent event = requireCalendarEvent(meeting);
+        meeting.setGraphEventId(event.getEventId());
+        if (!isBlank(event.getJoinUrl())) meeting.setTeamsJoinUrl(event.getJoinUrl());
+        meeting.setInvitationSnapshot(snapshot);
+        meeting.setInvitationSentOn(now());
+        meeting.setInvitationSentBy(user);
+        meeting.setInvitationReopened(false);
+        meeting = agendaRepository.saveMeeting(meeting);
+        recordAction(null, agmId, update ? "InvitationUpdated" : "InvitationSent",
+                meeting.getStatus(), meeting.getStatus(), update ? "Updated calendar invitation sent to attendees" : "Calendar invitation sent to attendees",
+                false, null, user);
+        return toMeetingDTO(meeting, true);
+    }
+
+    /** Delivery must succeed before recording an invitation as sent. */
+    private AgendaCalendarService.CalendarEvent requireCalendarEvent(ApprovalForumAgmAgendaMeetingEntity meeting) {
+        String failure = "The calendar invitation could not be sent. Nothing has been marked as sent. Try again, or contact support if the problem continues.";
         try {
             if (!calendarService.isConfigured()) {
-                logger.info("Calendar integration not configured - skipping event sync ({}) for meeting {}", trigger, meeting.getAgmId());
-                return;
+                throw new IllegalStateException("Calendar service is unavailable");
             }
             AgendaMeetingDTO dto = toMeetingDTO(meeting, true);
             fillMeetingTimes(dto);
@@ -1291,15 +1488,56 @@ public class AgendaServiceImpl implements AgendaService {
                 pack.add(new AgendaCalendarService.Attachment(paper.getFileName(), paper.getData()));
             }
             AgendaCalendarService.CalendarEvent event = calendarService.createOrUpdateEvent(dto, attendees, agendaHtml(dto, !pack.isEmpty()), pack);
-            if (event != null) {
-                meeting.setGraphEventId(event.getEventId());
-                if (event.getJoinUrl() != null && !event.getJoinUrl().trim().isEmpty()) {
-                    meeting.setTeamsJoinUrl(event.getJoinUrl());
-                }
-                agendaRepository.saveMeeting(meeting);
+            if (event == null || isBlank(event.getEventId())) {
+                throw new IllegalStateException("Calendar service returned no event");
             }
+            return event;
         } catch (Exception ex) {
-            logger.error("Calendar sync ({}) failed for meeting {}: {}", trigger, meeting.getAgmId(), ex.getMessage(), ex);
+            logger.error("Calendar invitation failed for meeting {}: {}", meeting.getAgmId(), ex.getMessage(), ex);
+            throw new IllegalStateException(failure);
+        }
+    }
+
+    /** Compare the actual invitation content and paper versions, without hashing PDF bytes. */
+    private String invitationSnapshot(AgendaMeetingDTO current) {
+        // Canonical order avoids false changes when unnumbered items share the same SQL sort key.
+        AgendaMeetingDTO meeting = new AgendaMeetingDTO();
+        meeting.setAgmId(current.getAgmId());
+        meeting.setCommitteeName(current.getCommitteeName());
+        meeting.setMandateLevel(current.getMandateLevel());
+        meeting.setMeetingDate(current.getMeetingDate());
+        meeting.setStartTime(current.getStartTime());
+        meeting.setEndTime(current.getEndTime());
+        meeting.setHeldVia(current.getHeldVia());
+        meeting.setVenue(current.getVenue());
+        meeting.setChair(current.getChair());
+        meeting.setQuorumSize(current.getQuorumSize());
+        meeting.setItems(current.getItems() == null ? null : current.getItems().stream()
+                .sorted(Comparator.comparingInt(AgendaItemDTO::getAgiId)).collect(Collectors.toList()));
+        fillMeetingTimes(meeting);
+        StringBuilder content = new StringBuilder();
+        content.append(meeting.getCommitteeName()).append('|').append(meeting.getMandateLevel()).append('|');
+        content.append(agendaHtml(meeting, false)).append('|');
+        content.append(java.util.Arrays.stream(collectAttendeeEmails(meeting.getAgmId()).split(";"))
+                .map(email -> email.trim().toLowerCase(Locale.ENGLISH)).sorted().collect(Collectors.joining(";")));
+        if (meeting.getItems() != null) {
+            for (AgendaItemDTO item : meeting.getItems()) {
+                if (!STATUS_APPROVED.equals(item.getItemStatus())) continue;
+                List<ApprovalForumAgidAgendaItemDocumentEntity> docs = agendaRepository.getDocumentsForItem(item.getAgiId());
+                docs.stream().filter(doc -> doc.isActive() && DOC_TYPE_CREDIT_PAPER.equalsIgnoreCase(doc.getDocType())
+                        && !DOC_SUPERSEDED.equalsIgnoreCase(doc.getValidationStatus()))
+                        .sorted(Comparator.comparingInt(ApprovalForumAgidAgendaItemDocumentEntity::getAgidId))
+                        .forEach(doc -> content.append('|').append(doc.getAgidId()).append(':').append(doc.getVersion()).append(':').append(doc.getFileName()));
+            }
+        }
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(content.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder();
+            for (byte value : digest) hex.append(String.format(Locale.ENGLISH, "%02x", value & 0xff));
+            return hex.toString();
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("Unable to compare invitation changes", ex);
         }
     }
 
@@ -1445,7 +1683,11 @@ public class AgendaServiceImpl implements AgendaService {
         if (MEETING_HELD.equals(status) || MEETING_CLOSED.equals(status) || MEETING_CANCELLED.equals(status)) {
             throw new IllegalStateException("Use the held / close / cancel actions to move a meeting to " + status);
         }
+        if (!MEETING_DRAFT.equals(status) || !MEETING_LOCKED.equals(meeting.getStatus())) {
+            throw new IllegalStateException("Use the agenda actions to change this meeting's status.");
+        }
         String from = meeting.getStatus();
+        if (MEETING_LOCKED.equals(from) && !MEETING_LOCKED.equals(status)) meeting.setInvitationReopened(true);
         meeting.setStatus(status);
         meeting = agendaRepository.saveMeeting(meeting);
         if (MEETING_LOCKED.equals(from) && !MEETING_LOCKED.equals(status)) {
@@ -1506,8 +1748,32 @@ public class AgendaServiceImpl implements AgendaService {
 
     @Override
     public List<AgendaNotificationDTO> getNotificationsForItem(int agiId) {
-        return agendaRepository.getNotificationsForItem(agiId).stream()
-                .map(this::toNotificationDTO).collect(Collectors.toList());
+        List<ApprovalForumAgwAgendaWorkflowActionEntity> actions = agendaRepository.getWorkflowActionsForItem(agiId);
+        return agendaRepository.getNotificationsForItem(agiId).stream().map(notification -> {
+            AgendaNotificationDTO dto = toNotificationDTO(notification);
+            String type = notification.getNotificationType();
+            if (STATUS_RETURNED.equals(type) || STATUS_REJECTED.equals(type)) {
+                dto.setMessage(STATUS_RETURNED.equals(type)
+                        ? "Make the requested corrections, upload a new PDF version if the paper changed, and submit the item for review again."
+                        : "The agenda item was rejected. Review the recorded reason and contact the meeting secretary about the next steps.");
+                // Notification history predates a foreign key to Workflow. Only associate a nearby
+                // recorded decision; never show a reason from a different, older return cycle.
+                if (notification.getSentOn() != null) {
+                    long recorded = notification.getSentOn().getTime();
+                    actions.stream().filter(action -> action.isActive() && type.equals(action.getToStatus())
+                                    && action.getCreatedOn() != null
+                                    && action.getCreatedOn().getTime() <= recorded + 1000L
+                                    && recorded - action.getCreatedOn().getTime() <= 120000L)
+                            .min(Comparator.comparingLong(action -> Math.abs(recorded - action.getCreatedOn().getTime())))
+                            .ifPresent(action -> {
+                                dto.setReason(action.getComments());
+                                dto.setActionBy(action.getCreatedBy());
+                                dto.setWorkflowActionId(action.getAgwId());
+                            });
+                }
+            }
+            return dto;
+        }).collect(Collectors.toList());
     }
 
     private AgendaNotificationDTO toNotificationDTO(ApprovalForumAgnAgendaNotificationEntity entity) {
@@ -2075,6 +2341,18 @@ public class AgendaServiceImpl implements AgendaService {
      * same meeting - a reserved time must be refused to the next analyst, not double-booked.
      * Items without (or with unparseable) times are skipped; compile proposes times for those.
      */
+    /** The reservation interval is owned by the server, derived from start and requested duration. */
+    private void prepareBookingSlot(AgendaItemDTO dto) {
+        Integer start = toSlotMinutes(dto.getStartTime());
+        if (start == null) throw new IllegalStateException("Choose a valid start time for the discussion slot");
+        Integer duration = dto.getEstimatedMinutes();
+        if (duration == null || duration <= 0) throw new IllegalStateException("A positive discussion duration is required");
+        long end = (long) start + duration;
+        if (end > 1439) throw new IllegalStateException("The discussion must finish before midnight. Choose an earlier start time");
+        dto.setStartTime(String.format(java.util.Locale.ROOT, "%02d:%02d", start / 60, start % 60));
+        dto.setEndTime(String.format(java.util.Locale.ROOT, "%02d:%02d", end / 60, end % 60));
+    }
+
     private void assertNoOverlappingSlot(int agmId, Integer excludeAgiId, String startTime, String endTime) {
         Integer start = toSlotMinutes(startTime);
         Integer end = toSlotMinutes(endTime);
@@ -2093,6 +2371,10 @@ public class AgendaServiceImpl implements AgendaService {
             }
             Integer otherStart = toSlotMinutes(other.getStartTime());
             Integer otherEnd = toSlotMinutes(other.getEndTime());
+            if (otherStart != null && other.getEstimatedMinutes() != null && other.getEstimatedMinutes() > 0) {
+                int durationEnd = otherStart + other.getEstimatedMinutes();
+                if (otherEnd == null || durationEnd > otherEnd) otherEnd = durationEnd;
+            }
             if (otherStart != null && otherEnd != null && start < otherEnd && otherStart < end) {
                 String label = other.getAgendaNumber() != null && !other.getAgendaNumber().isEmpty()
                         ? "item " + other.getAgendaNumber() : "'" + other.getCounterpartyName() + "'";
@@ -2338,6 +2620,8 @@ public class AgendaServiceImpl implements AgendaService {
         dto.setVenue(entity.getVenue());
         dto.setTeamsJoinUrl(entity.getTeamsJoinUrl());
         dto.setGraphEventId(entity.getGraphEventId());
+        dto.setInvitationSentOn(entity.getInvitationSentOn());
+        dto.setInvitationSentBy(entity.getInvitationSentBy());
         dto.setActualStartTime(entity.getActualStartTime());
         dto.setActualEndTime(entity.getActualEndTime());
         dto.setQuorumAchieved(entity.getQuorumAchieved());
@@ -2361,6 +2645,9 @@ public class AgendaServiceImpl implements AgendaService {
                         }
                         return itemDto;
                     }).collect(Collectors.toList()));
+            dto.setInvitationNeedsUpdate(!isBlank(entity.getGraphEventId())
+                    && (entity.isInvitationReopened() || isBlank(entity.getInvitationSnapshot())
+                    || !entity.getInvitationSnapshot().equals(invitationSnapshot(dto))));
         }
         return dto;
     }
@@ -2441,11 +2728,16 @@ public class AgendaServiceImpl implements AgendaService {
         if (meeting != null) {
             dto.setCutOffOn(meeting.getCutOffOn());
         }
+        List<ApprovalForumAgwAgendaWorkflowActionEntity> itemActions = withDocuments || STATUS_APPROVED.equals(entity.getItemStatus())
+                ? agendaRepository.getWorkflowActionsForItem(entity.getAgiId()) : java.util.Collections.emptyList();
+        itemActions.stream().filter(action -> action.isActive() && ACTION_APPROVE.equals(action.getAction()) && action.getCreatedOn() != null)
+                .map(ApprovalForumAgwAgendaWorkflowActionEntity::getCreatedOn).max(Comparator.naturalOrder()).ifPresent(dto::setApprovedOn);
         if (withDocuments) {
+            dto.setRequiredDocumentTypes(requiredDocTypes(committeeOf(entity)));
             dto.setDocuments(agendaRepository.getDocumentsForItem(entity.getAgiId()).stream()
                     .map(this::toDocumentDTO).collect(Collectors.toList()));
             dto.setParticipants(effectiveParticipants(entity).stream().map(this::toParticipantDTO).collect(Collectors.toList()));
-            dto.setActions(agendaRepository.getWorkflowActionsForItem(entity.getAgiId()).stream()
+            dto.setActions(itemActions.stream()
                     .map(this::toActionDTO).collect(Collectors.toList()));
             dto.setConditions(agendaRepository.getConditionsForItem(entity.getAgiId()).stream()
                     .map(this::toConditionDTO).collect(Collectors.toList()));

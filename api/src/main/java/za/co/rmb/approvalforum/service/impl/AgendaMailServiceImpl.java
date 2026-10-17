@@ -129,10 +129,23 @@ public class AgendaMailServiceImpl implements AgendaMailService {
     }
 
     @Override
+    public void sendItemReviewedMail(AgendaItemDTO item, String approverIds) {
+        String content = banner("#e6f4f4", "#b3dede", "Submission Review Complete", "AWAITING APPROVAL", "#006c68",
+                item.getCounterpartyName() + " has completed independent review. An authorised approver or chair must now approve or reject the agenda item.")
+                + itemSections(item);
+        send(item.getAgiId(), null, "Reviewed", join(resolveEmails(approverIds), analystRecipients(item)),
+                SUBJECT_PREFIX + "Item reviewed - approval required: " + item.getCounterpartyName(), shell(content, dafLink(item.getAgiId(), null)), null);
+    }
+
+    @Override
     public void sendItemReturnedMail(AgendaItemDTO item, String reason) {
         String content = banner("#fff6dd", "#f0dfae", "Agenda Item Returned", "RETURNED", "#f47920",
                 item.getCounterpartyName() + " has been returned by the reviewer and needs attention before it can be "
-                        + "resubmitted." + (reason == null || reason.trim().isEmpty() ? "" : " Reason: " + reason.trim()))
+                        + "resubmitted.")
+                + section("Reason for return", htmlText(reason == null || reason.trim().isEmpty()
+                        ? "No return reason was recorded. Ask the reviewer to clarify the required corrections." : reason.trim()))
+                + section("What to do next", "Make the requested corrections. If the credit paper changed, upload a new PDF version. "
+                        + "Then submit the item for review again using the link below.")
                 + itemSections(item);
         send(item.getAgiId(), null, "Returned", analystRecipients(item),
                 SUBJECT_PREFIX + "Item returned: " + item.getCounterpartyName(), shell(content, dafLink(item.getAgiId(), null)), null);
@@ -221,11 +234,17 @@ public class AgendaMailServiceImpl implements AgendaMailService {
                 + ";border:1px solid " + border + ";border-radius:6px;\"><tr>"
                 + "<td style=\"padding:14px 18px;\">"
                 + "<div style=\"" + FONT + "font-size:16px;font-weight:bold;color:#0a0a0d;\">" + title + "</div>"
-                + "<div style=\"" + FONT + "font-size:13px;color:#4a4f55;padding-top:4px;\">" + text + "</div></td>"
+                + "<div style=\"" + FONT + "font-size:13px;color:#4a4f55;padding-top:4px;\">" + htmlText(text) + "</div></td>"
                 + "<td align=\"right\" valign=\"top\" style=\"padding:14px 18px;\">"
                 + "<span style=\"" + FONT + "font-size:10px;font-weight:bold;letter-spacing:0.5px;color:" + badgeColor + ";\">"
                 + badge + "</span></td>"
                 + "</tr></table>";
+    }
+
+    /** Treat user-entered content as text, preserving readable paragraph breaks in email. */
+    private String htmlText(String value) {
+        return value == null ? "" : value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\"", "&quot;").replace("'", "&#39;").replace("\r\n", "\n").replace("\r", "\n").replace("\n", "<br/>");
     }
 
     private String section(String title, String inner) {
@@ -245,7 +264,7 @@ public class AgendaMailServiceImpl implements AgendaMailService {
             sb.append("<tr><td style=\"padding:3px 0;").append(FONT)
                     .append("font-size:13px;color:#4a4f55;width:45%;\">").append(r[0])
                     .append("</td><td style=\"padding:3px 0;").append(FONT)
-                    .append("font-size:13px;color:#0a0a0d;font-weight:bold;\">").append(r[1])
+                    .append("font-size:13px;color:#0a0a0d;font-weight:bold;\">").append(htmlText(r[1]))
                     .append("</td></tr>");
         }
         return sb.append("</table>").toString();

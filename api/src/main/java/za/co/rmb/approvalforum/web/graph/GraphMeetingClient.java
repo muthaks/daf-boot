@@ -25,7 +25,6 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Creates the Teams/Outlook meeting for a committee meeting through Microsoft Graph (BRS BR-013).
@@ -37,7 +36,7 @@ import java.util.concurrent.TimeUnit;
  * attendees invited, so Outlook sends the invitations and tracks responses. Configured via af.graph.tenantId / clientId /
  * clientSecret / organizer (env AF_GRAPH_TENANT_ID / AF_GRAPH_CLIENT_ID / AF_GRAPH_CLIENT_SECRET /
  * AF_GRAPH_ORGANIZER) and an optional outbound proxy (af.graph.proxy.host / port); when unset the
- * client reports not configured and the agenda flow carries on without a calendar event.
+ * client reports not configured and invitation sending fails.
  *
  * Entra app registration requirement: application permission Calendars.ReadWrite (admin consent).
  */
@@ -59,13 +58,22 @@ public class GraphMeetingClient implements AgendaCalendarService {
     private static final int UPLOAD_CHUNK_BYTES = 10 * 320 * 1024;
 
     private final Map<String, String> afSettings;
+    private final String graphBase;
+    private final String loginBase;
     private final ObjectMapper mapper = new ObjectMapper();
     private volatile String cachedToken;
     private volatile long cachedTokenExpiryMs;
 
     @Inject
     public GraphMeetingClient(@Named("af_settings") Map<String, String> afSettings) {
+        this(afSettings, GRAPH_BASE, LOGIN_BASE);
+    }
+
+    /** Package-private endpoints let regression tests exercise real HTTP against a loopback server. */
+    GraphMeetingClient(Map<String, String> afSettings, String graphBase, String loginBase) {
         this.afSettings = afSettings;
+        this.graphBase = graphBase;
+        this.loginBase = loginBase;
     }
 
     @Override
@@ -96,26 +104,40 @@ public class GraphMeetingClient implements AgendaCalendarService {
                 // With papers to attach the event is created without attendees, the papers are added,
                 // and the update below invites the attendees: one invitation, papers included.
                 ObjectNode create = body.deepCopy();
+                String identity = setting("af.agenda.ui.base") + ":" + setting("af.graph.clientId") + ":" + meeting.getAgmId();
+                // Reinstatement needs a fresh event, while every retry within that cycle stays stable.
+                if (meeting.getCancelledOn() != null) identity += ":" + meeting.getCancelledOn().toInstant().toString();
+                create.put("transactionId", java.util.UUID.nameUUIDFromBytes(identity.getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString());
                 if (withAttachments) {
                     create.remove("attendees");
                 }
                 logger.info("Graph: creating Teams meeting for agenda meeting {} on {}", meeting.getAgmId(), organizer);
-                Response response = client.target(GRAPH_BASE + "/users/" + organizer + "/events")
+                Response response = client.target(graphBase + "/users/" + organizer + "/events")
                         .request(MediaType.APPLICATION_JSON)
                         .header("Authorization", "Bearer " + token)
                         .post(Entity.entity(mapper.writeValueAsString(create), MediaType.APPLICATION_JSON));
                 String text = response.readEntity(String.class);
-                if (response.getStatus() < 200 || response.getStatus() >= 300) {
-                    logger.warn("Graph event call returned {}: {}", response.getStatus(), abbreviate(text));
-                    return null;
+                int status = response.getStatus();
+                response.close();
+                if (status < 200 || status >= 300) {
+                    // An earlier create can succeed before its attendee PATCH fails. Graph returns
+                    // the existing event on a duplicate transaction; verify ownership before resuming.
+                    eventId = recoverCreatedEventId(client, organizer, token, status, text, create.path("transactionId").asText());
+                    if (blank(eventId)) {
+                        logger.warn("Graph event call returned {}: {}", status, abbreviate(text));
+                        return null;
+                    }
+                    logger.info("Graph: resuming existing event for agenda meeting {}", meeting.getAgmId());
+                } else {
+                    JsonNode created = mapper.readTree(text);
+                    if (!withAttachments) {
+                        return calendarEvent(created, null);
+                    }
+                    eventId = created.path("id").asText(null);
                 }
-                JsonNode created = mapper.readTree(text);
-                if (!withAttachments) {
-                    return calendarEvent(created, null);
-                }
-                eventId = created.path("id").asText(null);
+                if (blank(eventId)) return null;
             }
-            String eventUrl = GRAPH_BASE + "/users/" + organizer + "/events/" + eventId;
+            String eventUrl = graphBase + "/users/" + organizer + "/events/" + eventId;
             if (attachments != null) {
                 // Graph: attachments the organiser adds reach the attendees with the next update.
                 replaceAttachments(client, eventUrl, token, attachments);
@@ -142,6 +164,30 @@ public class GraphMeetingClient implements AgendaCalendarService {
             return null;
         } finally {
             client.close();
+        }
+    }
+
+    /** Recover only the event Graph identifies, on the same organiser mailbox and transaction. */
+    private String recoverCreatedEventId(Client client, String organizer, String token, int status, String text,
+                                         String transactionId) throws IOException {
+        if (status != 400 && status != 409) return null;
+        JsonNode error = mapper.readTree(text).path("error");
+        if (!"ErrorDuplicateTransactionId".equals(error.path("code").asText())) return null;
+        String eventId = error.path("@event.existingEventId").asText(null);
+        if (blank(eventId)) return null;
+        try (Response existing = client.target(graphBase + "/users/" + organizer + "/events/" + eventId)
+                .queryParam("$select", "id,transactionId,isCancelled")
+                .request(MediaType.APPLICATION_JSON)
+                .header("Authorization", "Bearer " + token).get()) {
+            if (existing.getStatus() < 200 || existing.getStatus() >= 300) return null;
+            JsonNode event = mapper.readTree(existing.readEntity(String.class));
+            if (!eventId.equals(event.path("id").asText())
+                    || !transactionId.equals(event.path("transactionId").asText())
+                    || event.path("isCancelled").asBoolean(false)) {
+                logger.warn("Graph: duplicate transaction event could not be verified");
+                return null;
+            }
+            return eventId;
         }
     }
 
@@ -255,29 +301,27 @@ public class GraphMeetingClient implements AgendaCalendarService {
 
     @Override
     public void cancelEvent(AgendaMeetingDTO meeting, String reason) {
-        if (!isConfigured() || blank(meeting.getGraphEventId())) {
-            return;
-        }
+        if (blank(meeting.getGraphEventId())) return;
+        if (!isConfigured()) throw new IllegalStateException("Calendar service is unavailable");
         String token = getToken();
-        if (token == null) {
-            return;
-        }
+        if (token == null) throw new IllegalStateException("Calendar access failed");
         String organizer = setting("af.graph.organizer").trim();
         Client client = newClient();
         try {
             ObjectNode body = mapper.createObjectNode();
             body.put("comment", reason == null ? "Meeting cancelled" : reason);
-            Response response = client.target(GRAPH_BASE + "/users/" + organizer + "/events/" + meeting.getGraphEventId() + "/cancel")
+            Response response = client.target(graphBase + "/users/" + organizer + "/events/" + meeting.getGraphEventId() + "/cancel")
                     .request(MediaType.APPLICATION_JSON)
                     .header("Authorization", "Bearer " + token)
                     .post(Entity.entity(mapper.writeValueAsString(body), MediaType.APPLICATION_JSON));
             if (response.getStatus() < 200 || response.getStatus() >= 300) {
-                logger.warn("Graph cancel returned {} for event {}", response.getStatus(), meeting.getGraphEventId());
+                throw new IllegalStateException("Calendar cancellation returned " + response.getStatus());
             } else {
                 logger.info("Graph: event {} cancelled", meeting.getGraphEventId());
             }
-        } catch (Throwable ex) {
+        } catch (Exception ex) {
             logger.error("Graph cancel failed for meeting {}: {}", meeting.getAgmId(), ex.toString(), ex);
+            throw new IllegalStateException("Calendar invitation cancellation failed", ex);
         } finally {
             client.close();
         }
@@ -389,13 +433,13 @@ public class GraphMeetingClient implements AgendaCalendarService {
         String tenant = setting("af.graph.tenantId").trim();
         Client client = newClient();
         try {
-            logger.info("Graph token exchange: POST {}{}/oauth2/v2.0/token", LOGIN_BASE, tenant);
+            logger.info("Graph token exchange: POST {}{}/oauth2/v2.0/token", loginBase, tenant);
             Form form = new Form()
                     .param("client_id", setting("af.graph.clientId").trim())
                     .param("client_secret", setting("af.graph.clientSecret").trim())
                     .param("scope", GRAPH_SCOPE)
                     .param("grant_type", "client_credentials");
-            Response response = client.target(LOGIN_BASE + tenant + "/oauth2/v2.0/token")
+            Response response = client.target(loginBase + tenant + "/oauth2/v2.0/token")
                     .request(MediaType.APPLICATION_JSON)
                     .post(Entity.form(form));
             String text = response.readEntity(String.class);
@@ -422,9 +466,12 @@ public class GraphMeetingClient implements AgendaCalendarService {
     }
 
     private Client newClient() {
-        ClientBuilder builder = ClientBuilder.newBuilder()
-                .connectTimeout(CONNECT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                .readTimeout(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        // Select a transport that supports PATCH, without reflective HttpURLConnection workarounds.
+        org.glassfish.jersey.client.ClientConfig config = new org.glassfish.jersey.client.ClientConfig()
+                .connectorProvider(new org.glassfish.jersey.apache5.connector.Apache5ConnectorProvider());
+        config.property(org.glassfish.jersey.client.ClientProperties.CONNECT_TIMEOUT, CONNECT_TIMEOUT_MS);
+        config.property(org.glassfish.jersey.client.ClientProperties.READ_TIMEOUT, READ_TIMEOUT_MS);
+        ClientBuilder builder = new org.glassfish.jersey.client.JerseyClientBuilder().withConfig(config);
         String proxyHost = setting("af.graph.proxy.host");
         if (!blank(proxyHost)) {
             int port = 8080;
