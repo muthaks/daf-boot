@@ -98,16 +98,16 @@ POST /approvalForum/agenda/items/{agiId}/upload
 POST /approvalForum/agenda/meetings
 POST /approvalForum/agenda/meetings/{agmId}/cancel
 POST /approvalForum/agenda/meetings/{agmId}/close
-POST /approvalForum/agenda/meetings/{agmId}/compile
+# POST /approvalForum/agenda/meetings/{agmId}/compile - withdrawn (CASDM-1352): the agenda is the approved slots, numbered at approval; lock checks nothing awaits review
 POST /approvalForum/agenda/meetings/{agmId}/held
 POST /approvalForum/agenda/meetings/{agmId}/invitation
 POST /approvalForum/agenda/meetings/{agmId}/invitation/update
-POST /approvalForum/agenda/meetings/{agmId}/lock
+# POST /approvalForum/agenda/meetings/{agmId}/lock - withdrawn (CASDM-1352): items are frozen at approval; there is no agenda lock
 POST /approvalForum/agenda/meetings/{agmId}/records
 POST /approvalForum/agenda/meetings/{agmId}/reinstate
 POST /approvalForum/agenda/meetings/{agmId}/reopen
-POST /approvalForum/agenda/meetings/{agmId}/reschedule
-POST /approvalForum/agenda/meetings/{agmId}/status
+# POST /approvalForum/agenda/meetings/{agmId}/reschedule - withdrawn (CASDM-1352): slots are validated non-overlapping at booking, so there is no clash to auto-adjust
+# POST /approvalForum/agenda/meetings/{agmId}/status - withdrawn (CASDM-1352): re-opening the lock went with the lock
 POST /approvalForum/agenda/processCutOff
 POST /approvalForum/agenda/processReminders
 POST /approvalForum/assign/wip/{workflowId}

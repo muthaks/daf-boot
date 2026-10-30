@@ -7,7 +7,7 @@ import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import za.co.rmb.approvalforum.model.agenda.AgendaMeetingDTO;
+import za.co.rmb.approvalforum.service.AgendaCalendarService.CalendarEventRequest;
 import za.co.rmb.approvalforum.service.AgendaCalendarService.Attachment;
 import za.co.rmb.approvalforum.service.AgendaCalendarService.CalendarEvent;
 
@@ -61,7 +61,7 @@ public class GraphMeetingClientHttpTest {
 
     @Test
     public void createsAnInvitationWithAttendeesWhenThereAreNoPapers() {
-        CalendarEvent event = client(false).createOrUpdateEvent(meeting(null), attendees(), "<p>Agenda</p>", Collections.emptyList());
+        CalendarEvent event = client(false).createOrUpdateEvent(request(null).setHtml("<p>Agenda</p>").setAttachments(Collections.emptyList()));
         assertNotNull(event);
         assertEquals("event-10", event.getEventId());
         assertEquals("https://teams.example.test/10", event.getJoinUrl());
@@ -72,7 +72,7 @@ public class GraphMeetingClientHttpTest {
 
     @Test
     public void attachesPaperThenPatchInvitesAttendeesAndPreservesTeamsDetails() {
-        CalendarEvent event = client(false).createOrUpdateEvent(meeting(null), attendees(), "<p>Agenda</p>", papers());
+        CalendarEvent event = client(false).createOrUpdateEvent(request(null).setHtml("<p>Agenda</p>").setAttachments(papers()));
         assertNotNull(event, "PATCH must reach the server instead of failing in HttpURLConnection");
         assertEquals("event-10", event.getEventId());
         assertFalse(matching("POST", EVENTS).get(0).body.has("attendees"));
@@ -88,7 +88,7 @@ public class GraphMeetingClientHttpTest {
 
     @Test
     public void updatesExistingInvitationWithPatchWithoutCreatingAnotherEvent() {
-        CalendarEvent event = client(false).createOrUpdateEvent(meeting("event-10"), attendees(), "<p>Updated agenda</p>", papers());
+        CalendarEvent event = client(false).createOrUpdateEvent(request("event-10").setHtml("<p>Updated agenda</p>").setAttachments(papers()));
         assertNotNull(event);
         assertEquals("event-10", event.getEventId());
         assertTrue(matching("POST", EVENTS).isEmpty());
@@ -99,13 +99,13 @@ public class GraphMeetingClientHttpTest {
     @Test
     public void failedAttendeePatchReportsFailureAndRetryKeepsCreationTransactionIdentity() {
         GraphMeetingClient client = client(false);
-        AgendaMeetingDTO meeting = meeting(null);
+        CalendarEventRequest meeting = request(null);
         failPatch = true;
         duplicateAfterCreate = true;
-        assertNull(client.createOrUpdateEvent(meeting, attendees(), "<p>Agenda</p>", papers()));
-        assertNull(meeting.getGraphEventId(), "A failed send must not mark the meeting as invited");
+        assertNull(client.createOrUpdateEvent(meeting.setHtml("<p>Agenda</p>").setAttachments(papers())));
+        assertNull(meeting.getExistingEventId(), "A failed send must not mark the meeting as invited");
         failPatch = false;
-        assertNotNull(client.createOrUpdateEvent(meeting, attendees(), "<p>Agenda</p>", papers()));
+        assertNotNull(client.createOrUpdateEvent(meeting.setHtml("<p>Agenda</p>").setAttachments(papers())));
         List<Request> creates = matching("POST", EVENTS);
         assertEquals(2, creates.size());
         String transactionId = creates.get(0).body.path("transactionId").asText();
@@ -117,7 +117,7 @@ public class GraphMeetingClientHttpTest {
 
     @Test
     public void configuredOutboundProxyCarriesTokenCreateAndPatchRequests() {
-        CalendarEvent event = client(true).createOrUpdateEvent(meeting(null), attendees(), "<p>Agenda</p>", papers());
+        CalendarEvent event = client(true).createOrUpdateEvent(request(null).setHtml("<p>Agenda</p>").setAttachments(papers()));
         assertNotNull(event, "Proxy configuration must apply to the selected connector");
         assertTrue(requests.stream().anyMatch(r -> r.uri.startsWith("http://auth.invalid/")));
         Request patch = matching("PATCH", EVENTS + "/event-10").get(0);
@@ -128,7 +128,7 @@ public class GraphMeetingClientHttpTest {
     public void duplicateConflictWithoutPapersResumesWithCurrentAttendees() {
         createConflict = true;
         createFailureStatus = 409;
-        CalendarEvent event = client(false).createOrUpdateEvent(meeting(null), attendees(), "<p>Current agenda</p>", Collections.emptyList());
+        CalendarEvent event = client(false).createOrUpdateEvent(request(null).setHtml("<p>Current agenda</p>").setAttachments(Collections.emptyList()));
         assertNotNull(event);
         assertEquals("event-10", event.getEventId());
         assertEquals(1, matching("POST", EVENTS).size());
@@ -141,7 +141,7 @@ public class GraphMeetingClientHttpTest {
     public void duplicateWithoutExistingIdRemainsFailedWithoutUpdatingAnything() {
         createConflict = true;
         includeExistingId = false;
-        assertNull(client(false).createOrUpdateEvent(meeting(null), attendees(), "Agenda", papers()));
+        assertNull(client(false).createOrUpdateEvent(request(null).setHtml("Agenda").setAttachments(papers())));
         assertTrue(matching("GET", EVENTS + "/event-10").isEmpty());
         assertTrue(matching("PATCH", EVENTS + "/event-10").isEmpty());
     }
@@ -150,7 +150,7 @@ public class GraphMeetingClientHttpTest {
     public void unrelatedCreateErrorNeverAttemptsRecovery() {
         createConflict = true;
         createErrorCode = "ErrorInvalidRequest";
-        assertNull(client(false).createOrUpdateEvent(meeting(null), attendees(), "Agenda", papers()));
+        assertNull(client(false).createOrUpdateEvent(request(null).setHtml("Agenda").setAttachments(papers())));
         assertTrue(matching("GET", EVENTS + "/event-10").isEmpty());
         assertTrue(matching("PATCH", EVENTS + "/event-10").isEmpty());
     }
@@ -159,7 +159,7 @@ public class GraphMeetingClientHttpTest {
     public void permissionFailureNeverAttemptsRecoveryEvenWithDuplicateCode() {
         createConflict = true;
         createFailureStatus = 403;
-        assertNull(client(false).createOrUpdateEvent(meeting(null), attendees(), "Agenda", papers()));
+        assertNull(client(false).createOrUpdateEvent(request(null).setHtml("Agenda").setAttachments(papers())));
         assertTrue(matching("GET", EVENTS + "/event-10").isEmpty());
         assertTrue(matching("PATCH", EVENTS + "/event-10").isEmpty());
     }
@@ -168,7 +168,7 @@ public class GraphMeetingClientHttpTest {
     public void duplicateBelongingToAnotherTransactionIsNeverModified() {
         createConflict = true;
         wrongTransaction = true;
-        assertNull(client(false).createOrUpdateEvent(meeting(null), attendees(), "Agenda", papers()));
+        assertNull(client(false).createOrUpdateEvent(request(null).setHtml("Agenda").setAttachments(papers())));
         assertEquals(1, matching("GET", EVENTS + "/event-10").size());
         assertTrue(matching("PATCH", EVENTS + "/event-10").isEmpty());
         assertTrue(matching("POST", EVENTS + "/event-10/attachments").isEmpty());
@@ -178,7 +178,7 @@ public class GraphMeetingClientHttpTest {
     public void cancelledDuplicateIsNeverResent() {
         createConflict = true;
         cancelled = true;
-        assertNull(client(false).createOrUpdateEvent(meeting(null), attendees(), "Agenda", papers()));
+        assertNull(client(false).createOrUpdateEvent(request(null).setHtml("Agenda").setAttachments(papers())));
         assertTrue(matching("PATCH", EVENTS + "/event-10").isEmpty());
         assertTrue(matching("POST", EVENTS + "/event-10/attachments").isEmpty());
     }
@@ -187,7 +187,7 @@ public class GraphMeetingClientHttpTest {
     public void unreadableDuplicateRemainsFailedWithoutCreatingAnotherEvent() {
         createConflict = true;
         recoveryStatus = 404;
-        assertNull(client(false).createOrUpdateEvent(meeting(null), attendees(), "Agenda", papers()));
+        assertNull(client(false).createOrUpdateEvent(request(null).setHtml("Agenda").setAttachments(papers())));
         assertEquals(1, matching("POST", EVENTS).size());
         assertTrue(matching("PATCH", EVENTS + "/event-10").isEmpty());
         assertTrue(matching("POST", EVENTS + "/event-10/attachments").isEmpty());
@@ -196,12 +196,12 @@ public class GraphMeetingClientHttpTest {
     @Test
     public void reinstatedMeetingUsesFreshTransactionWhileItsRetriesRemainStable() {
         GraphMeetingClient client = client(false);
-        AgendaMeetingDTO meeting = meeting(null);
-        assertNotNull(client.createOrUpdateEvent(meeting, attendees(), "Agenda", Collections.emptyList()));
+        CalendarEventRequest meeting = request(null);
+        assertNotNull(client.createOrUpdateEvent(meeting.setHtml("Agenda").setAttachments(Collections.emptyList())));
         meeting.setCancelledOn(java.sql.Timestamp.valueOf("2026-10-17 18:30:00"));
-        assertNotNull(client.createOrUpdateEvent(meeting, attendees(), "Restored agenda", Collections.emptyList()));
+        assertNotNull(client.createOrUpdateEvent(meeting.setHtml("Restored agenda").setAttachments(Collections.emptyList())));
         createConflict = true;
-        assertNotNull(client.createOrUpdateEvent(meeting, attendees(), "Restored agenda", Collections.emptyList()));
+        assertNotNull(client.createOrUpdateEvent(meeting.setHtml("Restored agenda").setAttachments(Collections.emptyList())));
         List<Request> creates = matching("POST", EVENTS);
         assertEquals(3, creates.size());
         assertNotEquals(creates.get(0).body.path("transactionId").asText(), creates.get(1).body.path("transactionId").asText());
@@ -211,13 +211,36 @@ public class GraphMeetingClientHttpTest {
     @Test
     public void aLaterCancellationAndReinstatementCreatesAnotherFreshTransaction() {
         GraphMeetingClient client = client(false);
-        AgendaMeetingDTO meeting = meeting(null);
+        CalendarEventRequest meeting = request(null);
         meeting.setCancelledOn(java.sql.Timestamp.valueOf("2026-10-17 18:30:00"));
-        assertNotNull(client.createOrUpdateEvent(meeting, attendees(), "First reinstatement", Collections.emptyList()));
+        assertNotNull(client.createOrUpdateEvent(meeting.setHtml("First reinstatement").setAttachments(Collections.emptyList())));
         meeting.setCancelledOn(java.sql.Timestamp.valueOf("2026-10-18 08:00:00"));
-        assertNotNull(client.createOrUpdateEvent(meeting, attendees(), "Second reinstatement", Collections.emptyList()));
+        assertNotNull(client.createOrUpdateEvent(meeting.setHtml("Second reinstatement").setAttachments(Collections.emptyList())));
         List<Request> creates = matching("POST", EVENTS);
         assertNotEquals(creates.get(0).body.path("transactionId").asText(), creates.get(1).body.path("transactionId").asText());
+    }
+
+    @Test
+    public void anItemEventCarriesOnlyItsOwnPeoplePaperAndLink() {
+        CalendarEventRequest item = new CalendarEventRequest()
+                .setKey("item:55").setSubject("Fixture committee L3 - 3.1 Example Holdings")
+                .setDate(java.sql.Timestamp.valueOf("2026-10-27 00:00:00")).setStartTime("09:00").setEndTime("09:30")
+                .setHeldVia("MS Teams").setLink("/agenda/item/55")
+                .setAttendees(Arrays.asList("deal-team@example.test")).setHtml("<p>Item 3.1</p>").setAttachments(papers());
+        CalendarEvent event = client(false).createOrUpdateEvent(item);
+        assertNotNull(event);
+        Request create = matching("POST", EVENTS).get(0);
+        assertEquals("Fixture committee L3 - 3.1 Example Holdings", create.body.path("subject").asText());
+        assertEquals("2026-10-27T09:00:00", create.body.path("start").path("dateTime").asText());
+        assertEquals("2026-10-27T09:30:00", create.body.path("end").path("dateTime").asText());
+        Request patch = matching("PATCH", EVENTS + "/event-10").get(0);
+        assertEquals(1, patch.body.path("attendees").size());
+        assertEquals("deal-team@example.test", patch.body.path("attendees").get(0).path("emailAddress").path("address").asText());
+        assertTrue(patch.body.path("body").path("content").asText().contains("https://agenda.example.test/agenda/item/55"));
+        assertEquals(1, matching("POST", EVENTS + "/event-10/attachments").size());
+        // A different key is a different transaction, so the item never resumes the meeting's event.
+        assertNotEquals(create.body.path("transactionId").asText(),
+                java.util.UUID.nameUUIDFromBytes("https://agenda.example.test:test-client:10".getBytes(StandardCharsets.UTF_8)).toString());
     }
 
     private GraphMeetingClient client(boolean proxy) {
@@ -234,17 +257,18 @@ public class GraphMeetingClientHttpTest {
         return new GraphMeetingClient(settings, (proxy ? "http://graph.invalid" : base) + "/v1.0", (proxy ? "http://auth.invalid" : base) + "/");
     }
 
-    private AgendaMeetingDTO meeting(String eventId) {
-        AgendaMeetingDTO meeting = new AgendaMeetingDTO();
-        meeting.setAgmId(10);
-        meeting.setCommitteeName("Fixture committee");
-        meeting.setMandateLevel("L3");
-        meeting.setMeetingDate(java.sql.Timestamp.valueOf("2026-10-27 00:00:00"));
-        meeting.setStartTime("08:00");
-        meeting.setEndTime("09:00");
-        meeting.setHeldVia("MS Teams");
-        meeting.setGraphEventId(eventId);
-        return meeting;
+    /** The standing roles' event for meeting 10, as the service describes it. */
+    private CalendarEventRequest request(String eventId) {
+        return new CalendarEventRequest()
+                .setKey("10")
+                .setExistingEventId(eventId)
+                .setSubject("Fixture committee L3 - Credit Committee")
+                .setDate(java.sql.Timestamp.valueOf("2026-10-27 00:00:00"))
+                .setStartTime("08:00")
+                .setEndTime("09:00")
+                .setHeldVia("MS Teams")
+                .setLink("/agenda/meeting/10")
+                .setAttendees(attendees());
     }
 
     private List<String> attendees() { return Arrays.asList("attendee@example.test"); }

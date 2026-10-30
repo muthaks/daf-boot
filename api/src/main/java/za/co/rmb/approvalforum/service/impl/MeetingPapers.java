@@ -11,8 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The credit papers that go out with agenda notifications and the meeting invitation: an item's
- * current credit paper, and the meeting pack (the current paper of every approved item).
+ * The credit paper that goes out with an item's notifications and its own calendar invitation. No
+ * pack of every item's paper is built: nobody receives another item's paper (BR-013, NFR-001).
  */
 final class MeetingPapers {
 
@@ -52,24 +52,5 @@ final class MeetingPapers {
             logger.warn("Could not load the credit paper for item {}: {}", agiId, ex.getMessage());
         }
         return papers;
-    }
-
-    /** The current credit paper of every approved item, named "<agenda number> <counterparty> - <file>". */
-    static List<Paper> meetingPack(ApprovalForumAgendaRepository agendaRepository, AgendaMeetingDTO meeting) {
-        List<Paper> pack = new ArrayList<>();
-        if (meeting.getItems() == null) {
-            return pack;
-        }
-        for (AgendaItemDTO item : meeting.getItems()) {
-            if (!"Approved".equalsIgnoreCase(item.getItemStatus())) {
-                continue;
-            }
-            String prefix = (item.getAgendaNumber() == null ? "" : item.getAgendaNumber() + " ")
-                    + (item.getCounterpartyName() == null ? "" : item.getCounterpartyName() + " - ");
-            for (Paper paper : creditPapers(agendaRepository, item.getAgiId())) {
-                pack.add(new Paper(prefix + paper.getFileName(), paper.getData()));
-            }
-        }
-        return pack;
     }
 }

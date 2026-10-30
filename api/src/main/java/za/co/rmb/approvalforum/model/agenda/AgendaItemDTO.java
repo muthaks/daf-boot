@@ -330,6 +330,24 @@ public class AgendaItemDTO {
     public boolean isCanDecideQuorumException() { return canDecideQuorumException; }
     public void setCanDecideQuorumException(boolean value) { canDecideQuorumException = value; }
 
+    // ---- The item's own calendar invitation (V17) ----
+    private String graphEventId;
+    private String teamsJoinUrl;
+    private Timestamp invitationSentOn;
+    private String invitationSentBy;
+    /** The invitation was sent and the item's slot, people, details or paper changed since. */
+    private boolean invitationNeedsUpdate;
+    public String getGraphEventId() { return graphEventId; }
+    public void setGraphEventId(String value) { graphEventId = value; }
+    public String getTeamsJoinUrl() { return teamsJoinUrl; }
+    public void setTeamsJoinUrl(String value) { teamsJoinUrl = value; }
+    public Timestamp getInvitationSentOn() { return invitationSentOn; }
+    public void setInvitationSentOn(Timestamp value) { invitationSentOn = value; }
+    public String getInvitationSentBy() { return invitationSentBy; }
+    public void setInvitationSentBy(String value) { invitationSentBy = value; }
+    public boolean isInvitationNeedsUpdate() { return invitationNeedsUpdate; }
+    public void setInvitationNeedsUpdate(boolean value) { invitationNeedsUpdate = value; }
+
     public Timestamp getCutOffOn() { return cutOffOn; }
     public void setCutOffOn(Timestamp cutOffOn) { this.cutOffOn = cutOffOn; }
 

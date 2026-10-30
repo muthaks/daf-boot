@@ -110,9 +110,9 @@ public class AgendaMailServiceImpl implements AgendaMailService {
                 "The " + meeting.getCommitteeName() + " agenda for " + dateOf(meeting)
                         + " has been locked and issued. No further changes can be made to the agenda.")
                 + meetingSections(meeting);
+        // No pack of every item's paper: each item's participants hold their own paper (BR-013, NFR-001).
         send(null, meeting.getAgmId(), "Final", recipientEmails,
-                SUBJECT_PREFIX + "Final agenda: " + meeting.getCommitteeName(), shell(content, dafLink(null, meeting.getAgmId())),
-                meetingPack(meeting));
+                SUBJECT_PREFIX + "Final agenda: " + meeting.getCommitteeName(), shell(content, dafLink(null, meeting.getAgmId())), null);
     }
 
     // ---- BRS alignment: review/approval workflow and meeting lifecycle ----
@@ -202,7 +202,10 @@ public class AgendaMailServiceImpl implements AgendaMailService {
     public void sendItemApprovedMail(AgendaItemDTO item) {
         String content = banner("#e8f6ed", "#bfe6cc", "Agenda Item Approved", "APPROVED", "#1CA345",
                 item.getCounterpartyName() + " has been approved for the " + committeeOf(item)
-                        + " agenda for " + dateOf(item) + " and will be included when the agenda is compiled.")
+                        + " agenda for " + dateOf(item)
+                        + (item.getAgendaNumber() == null ? "" : " as item " + item.getAgendaNumber())
+                        + (item.getStartTime() == null ? "" : " at " + item.getStartTime() + (item.getEndTime() == null ? "" : " - " + item.getEndTime()))
+                        + ". The item's participants receive their own calendar invitation when the committee secretary sends the invitations.")
                 + itemSections(item);
         send(item.getAgiId(), null, "Approved", analystRecipients(item),
                 SUBJECT_PREFIX + "Item approved: " + item.getCounterpartyName(), shell(content, dafLink(item.getAgiId(), null)),
@@ -414,11 +417,6 @@ public class AgendaMailServiceImpl implements AgendaMailService {
         return attachments(MeetingPapers.creditPapers(agendaRepository, agiId));
     }
 
-    /** The pack distributed with the final agenda: the current credit paper of every approved item. */
-    private List<AttachmentModel> meetingPack(AgendaMeetingDTO meeting) {
-        return attachments(MeetingPapers.meetingPack(agendaRepository, meeting));
-    }
-
     private List<AttachmentModel> attachments(List<MeetingPapers.Paper> papers) {
         List<AttachmentModel> attachments = new ArrayList<>();
         for (MeetingPapers.Paper paper : papers) {
@@ -485,7 +483,8 @@ public class AgendaMailServiceImpl implements AgendaMailService {
     }
 
     /** ';'-separated user ids to their AD mail addresses (the id itself when AD has none). */
-    private String resolveEmails(String userIds) {
+    @Override
+    public String resolveEmails(String userIds) {
         Set<String> emails = new LinkedHashSet<>();
         if (userIds != null) {
             for (String userId : userIds.split(";")) {

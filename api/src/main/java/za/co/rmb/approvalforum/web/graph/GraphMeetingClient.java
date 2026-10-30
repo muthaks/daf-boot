@@ -9,7 +9,6 @@ import jakarta.inject.Singleton;
 import jakarta.inject.Named;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import za.co.rmb.approvalforum.model.agenda.AgendaMeetingDTO;
 import za.co.rmb.approvalforum.service.AgendaCalendarService;
 import za.co.rmb.approvalforum.service.InvitationStyle;
 
@@ -27,12 +26,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Creates the Teams/Outlook meeting for a committee meeting through Microsoft Graph (BRS BR-013).
+ * Creates the Teams/Outlook events for a committee meeting through Microsoft Graph (BRS BR-013): one
+ * per approved agenda item for that item's participants and paper, and one for the meeting's standing
+ * roles. The service layer describes each event as a {@link CalendarEventRequest}.
  *
  * Same shape as {@link za.co.rmb.approvalforum.web.casdm.CasdmRestClient}: a short-lived token is
  * obtained first (OAuth2 client-credentials against Entra ID, cached ~50 min), then the Graph
- * endpoint is called with it. The event is created on the organiser mailbox's calendar
- * ({@code af.graph.organizer}) as an online Teams meeting with the meeting pack attached and the
+ * endpoint is called with it. Each event is created on the organiser mailbox's calendar
+ * ({@code af.graph.organizer}) as an online Teams meeting with its attachments and its
  * attendees invited, so Outlook sends the invitations and tracks responses. Configured via af.graph.tenantId / clientId /
  * clientSecret / organizer (env AF_GRAPH_TENANT_ID / AF_GRAPH_CLIENT_ID / AF_GRAPH_CLIENT_SECRET /
  * AF_GRAPH_ORGANIZER) and an optional outbound proxy (af.graph.proxy.host / port); when unset the
@@ -83,10 +84,10 @@ public class GraphMeetingClient implements AgendaCalendarService {
     }
 
     @Override
-    public CalendarEvent createOrUpdateEvent(AgendaMeetingDTO meeting, List<String> attendeeEmails, String agendaHtml,
-                                             List<Attachment> attachments) {
+    public CalendarEvent createOrUpdateEvent(CalendarEventRequest request) {
+        String key = request.getKey();
         if (!isConfigured()) {
-            logger.info("Graph calendar not configured (af.graph.*) - no Teams/Outlook meeting for meeting {}", meeting.getAgmId());
+            logger.info("Graph calendar not configured (af.graph.*) - no Teams/Outlook meeting for {}", key);
             return null;
         }
         String token = getToken();
@@ -94,24 +95,25 @@ public class GraphMeetingClient implements AgendaCalendarService {
             return null;
         }
         String organizer = setting("af.graph.organizer").trim();
-        String content = InvitationStyle.invitation(agendaHtml == null ? "" : agendaHtml, agendaLink(meeting));
-        ObjectNode body = eventBody(meeting, attendeeEmails, content);
+        String content = InvitationStyle.invitation(request.getHtml() == null ? "" : request.getHtml(), agendaLink(request.getLink()));
+        List<Attachment> attachments = request.getAttachments();
+        ObjectNode body = eventBody(request, content);
         boolean withAttachments = attachments != null && !attachments.isEmpty();
         Client client = newClient();
         try {
-            String eventId = meeting.getGraphEventId();
+            String eventId = request.getExistingEventId();
             if (blank(eventId)) {
                 // With papers to attach the event is created without attendees, the papers are added,
                 // and the update below invites the attendees: one invitation, papers included.
                 ObjectNode create = body.deepCopy();
-                String identity = setting("af.agenda.ui.base") + ":" + setting("af.graph.clientId") + ":" + meeting.getAgmId();
+                String identity = setting("af.agenda.ui.base") + ":" + setting("af.graph.clientId") + ":" + key;
                 // Reinstatement needs a fresh event, while every retry within that cycle stays stable.
-                if (meeting.getCancelledOn() != null) identity += ":" + meeting.getCancelledOn().toInstant().toString();
+                if (request.getCancelledOn() != null) identity += ":" + request.getCancelledOn().toInstant().toString();
                 create.put("transactionId", java.util.UUID.nameUUIDFromBytes(identity.getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString());
                 if (withAttachments) {
                     create.remove("attendees");
                 }
-                logger.info("Graph: creating Teams meeting for agenda meeting {} on {}", meeting.getAgmId(), organizer);
+                logger.info("Graph: creating Teams meeting for {} on {}", key, organizer);
                 Response response = client.target(graphBase + "/users/" + organizer + "/events")
                         .request(MediaType.APPLICATION_JSON)
                         .header("Authorization", "Bearer " + token)
@@ -127,7 +129,7 @@ public class GraphMeetingClient implements AgendaCalendarService {
                         logger.warn("Graph event call returned {}: {}", status, abbreviate(text));
                         return null;
                     }
-                    logger.info("Graph: resuming existing event for agenda meeting {}", meeting.getAgmId());
+                    logger.info("Graph: resuming existing event for {}", key);
                 } else {
                     JsonNode created = mapper.readTree(text);
                     if (!withAttachments) {
@@ -142,7 +144,7 @@ public class GraphMeetingClient implements AgendaCalendarService {
                 // Graph: attachments the organiser adds reach the attendees with the next update.
                 replaceAttachments(client, eventUrl, token, attachments);
             }
-            logger.info("Graph: updating Teams meeting {} for agenda meeting {}", eventId, meeting.getAgmId());
+            logger.info("Graph: updating Teams meeting {} for {}", eventId, key);
             // Graph: replacing the body of an online meeting without its meeting blob turns the
             // meeting off, so the Teams block Exchange added to the current body is kept.
             String blob = meetingBlob(currentBody(client, eventUrl, token));
@@ -160,7 +162,7 @@ public class GraphMeetingClient implements AgendaCalendarService {
             }
             return calendarEvent(mapper.readTree(text), eventId);
         } catch (Throwable ex) {
-            logger.error("Graph event call failed for meeting {}: {}", meeting.getAgmId(), ex.toString(), ex);
+            logger.error("Graph event call failed for {}: {}", key, ex.toString(), ex);
             return null;
         } finally {
             client.close();
@@ -201,10 +203,10 @@ public class GraphMeetingClient implements AgendaCalendarService {
         return new CalendarEvent(id == null ? knownId : id, joinUrl);
     }
 
-    /** The meeting in Agenda Builder (af.agenda.ui.base), or null when the base is not set. */
-    private String agendaLink(AgendaMeetingDTO meeting) {
+    /** The page in Agenda Builder (af.agenda.ui.base + path), or null when the base or the path is not set. */
+    private String agendaLink(String path) {
         String base = setting("af.agenda.ui.base").trim();
-        return base.isEmpty() ? null : base + "/agenda/meeting/" + meeting.getAgmId();
+        return base.isEmpty() || blank(path) ? null : base + path;
     }
 
     /** Removes the event's attachments and adds the given ones (a file that fails is logged and skipped). */
@@ -300,8 +302,8 @@ public class GraphMeetingClient implements AgendaCalendarService {
     }
 
     @Override
-    public void cancelEvent(AgendaMeetingDTO meeting, String reason) {
-        if (blank(meeting.getGraphEventId())) return;
+    public void cancelEvent(String eventId, String reason) {
+        if (blank(eventId)) return;
         if (!isConfigured()) throw new IllegalStateException("Calendar service is unavailable");
         String token = getToken();
         if (token == null) throw new IllegalStateException("Calendar access failed");
@@ -310,17 +312,17 @@ public class GraphMeetingClient implements AgendaCalendarService {
         try {
             ObjectNode body = mapper.createObjectNode();
             body.put("comment", reason == null ? "Meeting cancelled" : reason);
-            Response response = client.target(graphBase + "/users/" + organizer + "/events/" + meeting.getGraphEventId() + "/cancel")
+            Response response = client.target(graphBase + "/users/" + organizer + "/events/" + eventId + "/cancel")
                     .request(MediaType.APPLICATION_JSON)
                     .header("Authorization", "Bearer " + token)
                     .post(Entity.entity(mapper.writeValueAsString(body), MediaType.APPLICATION_JSON));
             if (response.getStatus() < 200 || response.getStatus() >= 300) {
                 throw new IllegalStateException("Calendar cancellation returned " + response.getStatus());
             } else {
-                logger.info("Graph: event {} cancelled", meeting.getGraphEventId());
+                logger.info("Graph: event {} cancelled", eventId);
             }
         } catch (Exception ex) {
-            logger.error("Graph cancel failed for meeting {}: {}", meeting.getAgmId(), ex.toString(), ex);
+            logger.error("Graph cancel failed for event {}: {}", eventId, ex.toString(), ex);
             throw new IllegalStateException("Calendar invitation cancellation failed", ex);
         } finally {
             client.close();
@@ -370,13 +372,14 @@ public class GraphMeetingClient implements AgendaCalendarService {
         return html.substring(start, end > start ? end : html.length());
     }
 
-    private ObjectNode eventBody(AgendaMeetingDTO meeting, List<String> attendeeEmails, String agendaHtml) {
-        String date = new SimpleDateFormat("yyyy-MM-dd").format(meeting.getMeetingDate());
-        String start = blank(meeting.getStartTime()) ? "08:00" : meeting.getStartTime().trim();
-        String end = blank(meeting.getEndTime()) ? plusHours(start, 4) : meeting.getEndTime().trim();
+    private ObjectNode eventBody(CalendarEventRequest request, String agendaHtml) {
+        String date = new SimpleDateFormat("yyyy-MM-dd").format(request.getDate());
+        String start = blank(request.getStartTime()) ? "08:00" : request.getStartTime().trim();
+        String end = blank(request.getEndTime()) ? plusHours(start, 4) : request.getEndTime().trim();
+        List<String> attendeeEmails = request.getAttendees();
 
         ObjectNode body = mapper.createObjectNode();
-        body.put("subject", subject(meeting));
+        body.put("subject", request.getSubject() == null ? "" : request.getSubject());
         ObjectNode content = body.putObject("body");
         content.put("contentType", "HTML");
         content.put("content", agendaHtml == null ? "" : agendaHtml);
@@ -386,10 +389,10 @@ public class GraphMeetingClient implements AgendaCalendarService {
         ObjectNode endNode = body.putObject("end");
         endNode.put("dateTime", date + "T" + end + ":00");
         endNode.put("timeZone", TIME_ZONE);
-        if (!blank(meeting.getVenue())) {
-            body.putObject("location").put("displayName", meeting.getVenue());
+        if (!blank(request.getVenue())) {
+            body.putObject("location").put("displayName", request.getVenue());
         }
-        String mode = meeting.getHeldVia() == null ? "" : meeting.getHeldVia().toLowerCase();
+        String mode = request.getHeldVia() == null ? "" : request.getHeldVia().toLowerCase();
         boolean online = mode.isEmpty() || mode.contains("teams") || mode.contains("hybrid") || mode.contains("virtual");
         body.put("isOnlineMeeting", online);
         if (online) {
@@ -408,11 +411,6 @@ public class GraphMeetingClient implements AgendaCalendarService {
             }
         }
         return body;
-    }
-
-    private String subject(AgendaMeetingDTO meeting) {
-        return meeting.getCommitteeName()
-                + (blank(meeting.getMandateLevel()) ? "" : " " + meeting.getMandateLevel()) + " - Credit Committee";
     }
 
     private String plusHours(String hhmm, int hours) {

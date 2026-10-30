@@ -80,6 +80,11 @@ public class ApprovalForumAgiAgendaItemEntity {
     private String quorumExceptionDecidedBy;
     private Timestamp quorumExceptionDecidedOn;
     private String quorumExceptionDecisionNote;
+    private String graphEventId;
+    private String teamsJoinUrl;
+    private String invitationSnapshot;
+    private Timestamp invitationSentOn;
+    private String invitationSentBy;
 
     private ApprovalForumAgmAgendaMeetingEntity agmAgendaMeetingByAgmId;
 
@@ -582,6 +587,33 @@ public class ApprovalForumAgiAgendaItemEntity {
     @Column(name = "QuorumExceptionDecisionNote", length = 1000)
     public String getQuorumExceptionDecisionNote() { return quorumExceptionDecisionNote; }
     public void setQuorumExceptionDecisionNote(String value) { quorumExceptionDecisionNote = value; }
+
+    // ---- The item's own calendar invitation (V17): one Teams/Outlook event per approved item ----
+
+    @Basic
+    @Column(name = "GraphEventId")
+    public String getGraphEventId() { return graphEventId; }
+    public void setGraphEventId(String value) { graphEventId = value; }
+
+    @Basic
+    @Column(name = "TeamsJoinUrl", length = 1000)
+    public String getTeamsJoinUrl() { return teamsJoinUrl; }
+    public void setTeamsJoinUrl(String value) { teamsJoinUrl = value; }
+
+    @Basic
+    @Column(name = "InvitationSnapshot", length = 64)
+    public String getInvitationSnapshot() { return invitationSnapshot; }
+    public void setInvitationSnapshot(String value) { invitationSnapshot = value; }
+
+    @Basic
+    @Column(name = "InvitationSentOn")
+    public Timestamp getInvitationSentOn() { return invitationSentOn; }
+    public void setInvitationSentOn(Timestamp value) { invitationSentOn = value; }
+
+    @Basic
+    @Column(name = "InvitationSentBy")
+    public String getInvitationSentBy() { return invitationSentBy; }
+    public void setInvitationSentBy(String value) { invitationSentBy = value; }
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "AGM_ID", referencedColumnName = "AGM_ID", nullable = false)

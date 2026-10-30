@@ -494,41 +494,6 @@ public class ApprovalForumAgendaResource {
     }
 
     @POST
-    @Path("/meetings/{agmId}/compile")
-    @Produces("application/json")
-    @Transactional
-    @ApiOperation(value = "Compile the agenda (assign item numbers)", authorizations = @Authorization(value = "Bearer"))
-    public Response compileAgenda(@PathParam("agmId") int agmId) {
-        logger.info("compileAgenda({})", agmId);
-        tokenValidation(context);
-        Response denied = forbiddenUnless("compile the agenda", ROLE_SECRETARY, ROLE_CHAIRPERSON);
-        if (denied != null) return denied;
-        try {
-            return Response.ok(agendaService.compileAgenda(agmId, userName())).build();
-        } catch (IllegalStateException e) {
-            return conflict(e);
-        }
-    }
-
-    @POST
-    @Path("/meetings/{agmId}/reschedule")
-    @Produces("application/json")
-    @Transactional
-    @ApiOperation(value = "Auto-adjust discussion slots back-to-back to clear time clashes",
-            authorizations = @Authorization(value = "Bearer"))
-    public Response rescheduleAgenda(@PathParam("agmId") int agmId) {
-        logger.info("rescheduleAgenda({})", agmId);
-        tokenValidation(context);
-        Response denied = forbiddenUnless("re-sequence the agenda", ROLE_SECRETARY, ROLE_CHAIRPERSON);
-        if (denied != null) return denied;
-        try {
-            return Response.ok(agendaService.rescheduleAgenda(agmId, userName())).build();
-        } catch (IllegalStateException e) {
-            return conflict(e);
-        }
-    }
-
-    @POST
     @Path("/meetings/{agmId}/invitation")
     @Produces("application/json")
     @Transactional
@@ -559,44 +524,10 @@ public class ApprovalForumAgendaResource {
     }
 
     @POST
-    @Path("/meetings/{agmId}/lock")
-    @Produces("application/json")
-    @Transactional
-    @ApiOperation(value = "Lock the meeting agenda for editing", authorizations = @Authorization(value = "Bearer"))
-    public Response lockMeeting(@PathParam("agmId") int agmId) {
-        logger.info("lockMeeting({})", agmId);
-        tokenValidation(context);
-        Response denied = forbiddenUnless("lock the agenda", ROLE_SECRETARY, ROLE_CHAIRPERSON);
-        if (denied != null) return denied;
-        try {
-            return Response.ok(agendaService.lockMeeting(agmId, userName())).build();
-        } catch (IllegalStateException e) {
-            return conflict(e);
-        }
-    }
-
-    @POST
-    @Path("/meetings/{agmId}/status")
-    @Produces("application/json")
-    @Transactional
-    @ApiOperation(value = "Set meeting status", authorizations = @Authorization(value = "Bearer"))
-    public Response setMeetingStatus(@PathParam("agmId") int agmId, @QueryParam("status") String status) {
-        logger.info("setMeetingStatus({}, {})", agmId, status);
-        tokenValidation(context);
-        Response denied = forbiddenUnless("change the meeting status", ROLE_SECRETARY, ROLE_CHAIRPERSON);
-        if (denied != null) return denied;
-        try {
-            return Response.ok(agendaService.setMeetingStatus(agmId, status, userName())).build();
-        } catch (IllegalStateException e) {
-            return conflict(e);
-        }
-    }
-
-    @POST
     @Path("/meetings/{agmId}/held")
     @Produces("application/json")
     @Transactional
-    @ApiOperation(value = "Mark the meeting as held (unlocks post-meeting capture)",
+    @ApiOperation(value = "Mark the meeting as held once its scheduled end has passed (opens post-meeting capture)",
             authorizations = @Authorization(value = "Bearer"))
     public Response markMeetingHeld(@PathParam("agmId") int agmId,
                                     @QueryParam("actualStartTime") String actualStartTime,
@@ -640,7 +571,7 @@ public class ApprovalForumAgendaResource {
     public Response reopenMeeting(@PathParam("agmId") int agmId, @QueryParam("reason") String reason) {
         logger.info("reopenMeeting({})", agmId);
         tokenValidation(context);
-        Response denied = forbiddenUnless("re-open a closed meeting record", reviewerRole());
+        Response denied = forbiddenUnless("re-open a closed meeting record", ROLE_CHAIRPERSON, ROLE_SECRETARY);
         if (denied != null) return denied;
         try {
             return Response.ok(agendaService.reopenMeeting(agmId, reason, userName())).build();
@@ -1039,16 +970,15 @@ public class ApprovalForumAgendaResource {
     @Path("/items/{agiId}/postMeeting/unlock")
     @Produces("application/json")
     @Transactional
-    @ApiOperation(value = "Unlock a signed-off post-meeting record (reviewers only)",
+    @ApiOperation(value = "Unlock a signed-off post-meeting record (chairperson or secretary)",
             authorizations = @Authorization(value = "Bearer"))
     public Response unlockPostMeeting(@PathParam("agiId") int agiId) {
         logger.info("unlockPostMeeting({})", agiId);
         tokenValidation(context);
-        String reviewerRole = afSettings.get("af.agenda.reviewer.role");
-        if (reviewerRole == null || reviewerRole.trim().isEmpty() || !context.isUserInRole(reviewerRole.trim())) {
-            return Response.status(Response.Status.FORBIDDEN.getStatusCode(),
-                    "Only reviewers may unlock a signed-off post-meeting record").build();
-        }
+        // The chair signed the decision off, so the chair (or the committee secretary) unlocks it for a
+        // correction; the unlock is audited. A reviewer outranks neither and cannot.
+        Response denied = forbiddenUnless("unlock a signed-off post-meeting record", ROLE_CHAIRPERSON, ROLE_SECRETARY);
+        if (denied != null) return denied;
         return Response.ok(agendaService.unlockPostMeeting(agiId, userName())).build();
     }
 
@@ -1188,7 +1118,8 @@ public class ApprovalForumAgendaResource {
     public Response approveItem(@PathParam("agiId") int agiId, @QueryParam("comments") String comments) {
         logger.info("approveItem({})", agiId);
         tokenValidation(context);
-        Response denied = forbiddenUnless("approve agenda items", ROLE_APPROVER, ROLE_CHAIRPERSON);
+        // The approver is whoever holds the chairperson or secretary role (or the Approver role, where granted).
+        Response denied = forbiddenUnless("approve agenda items", ROLE_APPROVER, ROLE_CHAIRPERSON, ROLE_SECRETARY);
         if (denied != null) return denied;
         try {
             return Response.ok(agendaService.approveItem(agiId, comments, userName())).build();

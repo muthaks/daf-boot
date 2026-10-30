@@ -90,17 +90,9 @@ public interface AgendaService {
 
     AgendaItemDTO removeItem(int agiId, String user, String reason);
 
-    AgendaMeetingDTO compileAgenda(int agmId, String user);
-
-    AgendaMeetingDTO rescheduleAgenda(int agmId, String user);
-
-    AgendaMeetingDTO lockMeeting(int agmId, String user);
-
     AgendaMeetingDTO sendInvitation(int agmId, String user);
 
     AgendaMeetingDTO sendInvitationUpdate(int agmId, String user);
-
-    AgendaMeetingDTO setMeetingStatus(int agmId, String status, String user);
 
     AgendaMeetingDTO markMeetingHeld(int agmId, String user);
 

@@ -10,6 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import za.co.rmb.approvalforum.data.ApprovalForumAgendaRepository;
 import za.co.rmb.approvalforum.data.entity.*;
 import za.co.rmb.approvalforum.model.agenda.AgendaConditionDTO;
+import za.co.rmb.approvalforum.model.agenda.AgendaInvitationResultDTO;
 import za.co.rmb.approvalforum.model.agenda.AgendaItemDTO;
 import za.co.rmb.approvalforum.model.agenda.AgendaMeetingDTO;
 import za.co.rmb.approvalforum.model.agenda.AgendaQuorumResultDTO;
@@ -772,57 +773,37 @@ public class AgendaServiceImplBrsTest {
         assertEquals(LocalDateTime.of(2026, 9, 17, 17, 0), service.cutOffFor(committee, meetingDate).toLocalDateTime());
     }
 
-    // ---- Compile only approved items ----
+    // ---- Mark as held: no lock step; only once the sitting has ended ----
 
     @Test
-    @DisplayName("Compile refuses while items still await review")
-    void compileRefusesPendingReview() {
-        item.setItemStatus("Submitted");
-        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> service.compileAgenda(10, "sec"));
-        assertTrue(ex.getMessage().contains("await review"));
+    @DisplayName("Mark as held refuses before the sitting's scheduled end and needs no lock")
+    void heldWaitsForTheSittingToEnd() {
+        meeting.setMeetingDate(Timestamp.valueOf(LocalDate.now().atStartOfDay()));
+        meeting.setStartTime("09:00");
+        meeting.setEndTime("23:59");
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> service.markMeetingHeld(10, "09:00", "09:30", true, "sec"));
+        assertTrue(ex.getMessage().contains("scheduled end (23:59)"));
+        assertEquals("Draft", meeting.getStatus());
+        meeting.setMeetingDate(Timestamp.valueOf(LocalDate.now().minusDays(1).atStartOfDay()));
+        AgendaMeetingDTO held = service.markMeetingHeld(10, "09:00", "09:30", true, "sec");
+        assertEquals("Held", held.getStatus());
+        assertEquals("09:30", meeting.getActualEndTime());
+        verify(repository).saveWorkflowAction(any());
+        assertThrows(IllegalStateException.class, () -> service.markMeetingHeld(10, "09:00", "09:30", true, "sec"));
     }
 
-    @Test
-    @DisplayName("Compile numbers approved items only and leaves confirmed ones unnumbered")
-    void compileNumbersApprovedOnly() {
-        ApprovalForumAgiAgendaItemEntity approved = new ApprovalForumAgiAgendaItemEntity();
-        approved.setAgiId(101);
-        approved.setActive(true);
-        approved.setItemStatus("Approved");
-        approved.setEstimatedMinutes(30);
-        approved.setCreatedOn(Timestamp.valueOf(LocalDateTime.now()));
-        approved.setAgmAgendaMeetingByAgmId(meeting);
-        item.setCreatedOn(Timestamp.valueOf(LocalDateTime.now().minusMinutes(5)));
-        when(repository.getItemsForMeeting(10)).thenReturn(Arrays.asList(item, approved));
-        service.compileAgenda(10, "sec");
-        assertEquals("3.1", approved.getAgendaNumber());
-        assertNull(item.getAgendaNumber());
-        assertEquals("Compiled", meeting.getStatus());
-    }
-
-    @Test
-    @DisplayName("Repeating compile preserves the agenda without notifying attendees")
-    void repeatedCompileIsHarmless() {
-        item.setItemStatus("Approved");
-        item.setCreatedOn(Timestamp.valueOf(LocalDateTime.now()));
-        service.compileAgenda(10, "sec");
-        String agendaNumber = item.getAgendaNumber();
-        String startTime = item.getStartTime();
-        String endTime = item.getEndTime();
-        AgendaMeetingDTO repeated = service.compileAgenda(10, "sec");
-        assertEquals("Compiled", repeated.getStatus());
-        assertEquals(agendaNumber, item.getAgendaNumber());
-        assertEquals(startTime, item.getStartTime());
-        assertEquals(endTime, item.getEndTime());
-        verify(repository, times(1)).saveItem(item);
-        verify(repository, times(1)).saveMeeting(meeting);
-        verifyNoInteractions(mailService);
+    /** The committee's standing roles ride on every item's invitation. */
+    private void standingRoles() {
+        committee.setMeetingSecretaryId("secretary@example.test");
+        committee.setChairId("chair@example.test");
     }
 
     private void readyInvitation() {
+        standingRoles();
+        item.setItemStatus("Approved");
         item.setAttendeeEmails("attendee@example.test");
         when(calendarService.isConfigured()).thenReturn(true);
-        lenient().when(calendarService.createOrUpdateEvent(any(), any(), any(), any()))
+        lenient().when(calendarService.createOrUpdateEvent(any()))
                 .thenReturn(new AgendaCalendarService.CalendarEvent("event-10", "https://teams.example.test/10"));
     }
 
@@ -830,33 +811,17 @@ public class AgendaServiceImplBrsTest {
         IllegalStateException error = assertThrows(IllegalStateException.class, () -> service.sendInvitation(10, "sec"));
         assertTrue(error.getMessage().contains("could not be sent"));
         assertEquals("Draft", meeting.getStatus());
-        assertNull(meeting.getGraphEventId());
-        assertNull(meeting.getInvitationSentOn());
-        verify(repository, never()).saveMeeting(any());
+        assertNull(item.getGraphEventId());
+        assertNull(item.getInvitationSentOn());
+        verify(repository, never()).saveItem(any());
         verify(repository, never()).saveWorkflowAction(any());
         verifyNoInteractions(mailService);
     }
 
     @Test
-    void lockRequiresInvitationAndDoesNotSendOne() {
-        meeting.setStatus("Compiled");
-        assertTrue(assertThrows(IllegalStateException.class, () -> service.lockMeeting(10, "sec")).getMessage().contains("Send the calendar invitation"));
-        assertEquals("Compiled", meeting.getStatus());
-        verifyNoInteractions(calendarService, mailService);
-        verify(repository, never()).saveMeeting(any());
-    }
-
-    @Test
-    void lockingWithInvitationDoesNotNotifyAttendees() {
-        meeting.setStatus("Compiled");
-        meeting.setGraphEventId("existing-event");
-        assertEquals("Locked", service.lockMeeting(10, "sec").getStatus());
-        verifyNoInteractions(calendarService, mailService);
-        verify(repository).saveWorkflowAction(any());
-    }
-
-    @Test
     void invitationUnavailableDoesNotSaveSuccess() {
+        standingRoles();
+        item.setItemStatus("Approved");
         item.setAttendeeEmails("attendee@example.test");
         assertInvitationFailure();
     }
@@ -864,21 +829,21 @@ public class AgendaServiceImplBrsTest {
     @Test
     void invitationNullResultDoesNotSaveSuccess() {
         readyInvitation();
-        when(calendarService.createOrUpdateEvent(any(), any(), any(), any())).thenReturn(null);
+        when(calendarService.createOrUpdateEvent(any())).thenReturn(null);
         assertInvitationFailure();
     }
 
     @Test
     void invitationBlankIdDoesNotSaveSuccess() {
         readyInvitation();
-        when(calendarService.createOrUpdateEvent(any(), any(), any(), any())).thenReturn(new AgendaCalendarService.CalendarEvent(" ", null));
+        when(calendarService.createOrUpdateEvent(any())).thenReturn(new AgendaCalendarService.CalendarEvent(" ", null));
         assertInvitationFailure();
     }
 
     @Test
     void invitationExceptionDoesNotSaveSuccess() {
         readyInvitation();
-        when(calendarService.createOrUpdateEvent(any(), any(), any(), any())).thenThrow(new RuntimeException("test timeout"));
+        when(calendarService.createOrUpdateEvent(any())).thenThrow(new RuntimeException("test timeout"));
         assertInvitationFailure();
     }
 
@@ -887,14 +852,16 @@ public class AgendaServiceImplBrsTest {
         readyInvitation();
         AgendaMeetingDTO sent = service.sendInvitation(10, "sec");
         assertEquals("Draft", sent.getStatus());
-        assertEquals("event-10", sent.getGraphEventId());
-        assertEquals("sec", sent.getInvitationSentBy());
-        assertNotNull(sent.getInvitationSentOn());
+        assertEquals("event-10", item.getGraphEventId());
+        assertEquals("sec", item.getInvitationSentBy());
+        assertNotNull(item.getInvitationSentOn());
+        assertTrue(sent.isInvitationsSent());
         assertFalse(sent.isInvitationNeedsUpdate());
         assertFalse(service.getMeeting(10).isInvitationNeedsUpdate());
         service.sendInvitation(10, "sec");
-        verify(calendarService, times(1)).createOrUpdateEvent(any(), any(), any(), any());
-        verify(repository, times(1)).saveMeeting(meeting);
+        verify(calendarService, times(1)).createOrUpdateEvent(any());
+        verify(repository, times(1)).saveItem(item);
+        verify(repository, never()).saveMeeting(any());
         verify(repository, times(1)).saveWorkflowAction(any());
         verifyNoInteractions(mailService);
     }
@@ -906,42 +873,49 @@ public class AgendaServiceImplBrsTest {
     }
 
     @Test
-    void reopenKeepsInvitationAndUpdateClearsPendingChanges() {
+    void updateResendsOnlyWhatChangedAndRepeatIsHarmless() {
         readyInvitation();
         service.sendInvitation(10, "sec");
-        meeting.setStatus("Compiled");
-        service.lockMeeting(10, "sec");
-        AgendaMeetingDTO reopened = service.setMeetingStatus(10, "Draft", "sec");
-        assertEquals("event-10", reopened.getGraphEventId());
-        assertTrue(reopened.isInvitationNeedsUpdate());
-        verify(calendarService, never()).cancelEvent(any(), any());
-        verify(calendarService, times(1)).createOrUpdateEvent(any(), any(), any(), any());
+        verify(calendarService, times(1)).createOrUpdateEvent(any());
+        item.setAttendeeEmails("attendee@example.test;another@example.test");
+        assertTrue(service.getMeeting(10).isInvitationNeedsUpdate());
         AgendaMeetingDTO updated = service.sendInvitationUpdate(10, "sec");
         assertEquals("Draft", updated.getStatus());
         assertFalse(updated.isInvitationNeedsUpdate());
         assertFalse(service.getMeeting(10).isInvitationNeedsUpdate());
         service.sendInvitationUpdate(10, "sec");
-        verify(calendarService, times(2)).createOrUpdateEvent(any(), any(), any(), any());
+        verify(calendarService, times(2)).createOrUpdateEvent(any());
+        verify(calendarService, never()).cancelEvent(any(), any());
         verifyNoInteractions(mailService);
     }
 
     @Test
-    void meetingChangesRemainUnsentUntilExplicitUpdate() {
+    @DisplayName("Editing the meeting sends the invitation update itself; a refused update stays pending for Send update")
+    void meetingChangesAreSentWithTheEdit() {
         readyInvitation();
+        item.setStartTime("08:00");
+        item.setEndTime("08:30");
         service.sendInvitation(10, "sec");
+        verify(calendarService, times(1)).createOrUpdateEvent(any());
         AgendaMeetingDTO edit = new AgendaMeetingDTO();
         edit.setAgmId(10);
-        edit.setStartTime("09:00");
-        edit.setEndTime("10:00");
-        service.updateMeeting(edit, "sec");
+        edit.setMeetingDate(Timestamp.valueOf(LocalDate.now().plusDays(9).atStartOfDay()));
+        AgendaMeetingDTO moved = service.updateMeeting(edit, "sec");
+        ArgumentCaptor<AgendaCalendarService.CalendarEventRequest> captured = ArgumentCaptor.forClass(AgendaCalendarService.CalendarEventRequest.class);
+        verify(calendarService, times(2)).createOrUpdateEvent(captured.capture());
+        assertEquals("event-10", captured.getAllValues().get(1).getExistingEventId());
+        assertEquals(meeting.getMeetingDate(), captured.getAllValues().get(1).getDate());
+        assertFalse(moved.isInvitationNeedsUpdate());
+        assertEquals(Collections.singletonList("Updated"), moved.getInvitationResults().stream().map(AgendaInvitationResultDTO::getOutcome).collect(java.util.stream.Collectors.toList()));
+        // Graph refuses the next edit: the venue is saved, the invitation stays pending for Send update.
+        when(calendarService.createOrUpdateEvent(any())).thenReturn(null);
+        AgendaMeetingDTO venue = new AgendaMeetingDTO();
+        venue.setAgmId(10);
+        venue.setVenue("Boardroom 2");
+        AgendaMeetingDTO saved = service.updateMeeting(venue, "sec");
+        assertEquals("Boardroom 2", meeting.getVenue());
+        assertTrue(saved.isInvitationNeedsUpdate());
         assertTrue(service.getMeeting(10).isInvitationNeedsUpdate());
-        verify(calendarService, times(1)).createOrUpdateEvent(any(), any(), any(), any());
-        service.sendInvitationUpdate(10, "sec");
-        ArgumentCaptor<AgendaMeetingDTO> captured = ArgumentCaptor.forClass(AgendaMeetingDTO.class);
-        verify(calendarService, times(2)).createOrUpdateEvent(captured.capture(), any(), any(), any());
-        assertEquals("event-10", captured.getAllValues().get(1).getGraphEventId());
-        assertEquals("09:00", captured.getAllValues().get(1).getStartTime());
-        assertFalse(service.getMeeting(10).isInvitationNeedsUpdate());
     }
 
     @Test
@@ -961,13 +935,19 @@ public class AgendaServiceImplBrsTest {
     }
 
     @Test
-    void attendeeChangesNeedAnExplicitUpdate() {
+    void attendeeChangesOnAnItemNeedAnExplicitUpdateOfThatItemOnly() {
         readyInvitation();
+        item.setItemStatus("Approved");
         service.sendInvitation(10, "sec");
+        // The item's own event; the standing roles are on it.
+        verify(calendarService, times(1)).createOrUpdateEvent(any());
         item.setAttendeeEmails("attendee@example.test;another@example.test");
         assertTrue(service.getMeeting(10).isInvitationNeedsUpdate());
-        verify(calendarService, times(1)).createOrUpdateEvent(any(), any(), any(), any());
-        service.sendInvitationUpdate(10, "sec");
+        assertTrue(service.getItem(100).isInvitationNeedsUpdate());
+        AgendaMeetingDTO updated = service.sendInvitationUpdate(10, "sec");
+        verify(calendarService, times(2)).createOrUpdateEvent(any());
+        assertEquals(Collections.singletonList("Updated"),
+                updated.getInvitationResults().stream().map(AgendaInvitationResultDTO::getOutcome).collect(java.util.stream.Collectors.toList()));
         assertFalse(service.getMeeting(10).isInvitationNeedsUpdate());
     }
 
@@ -991,15 +971,15 @@ public class AgendaServiceImplBrsTest {
     void failedUpdateRetainsExistingInvitationAndPendingChanges() {
         readyInvitation();
         service.sendInvitation(10, "sec");
-        meeting.setInvitationReopened(true);
-        Timestamp sentOn = meeting.getInvitationSentOn();
-        when(calendarService.createOrUpdateEvent(any(), any(), any(), any())).thenReturn(null);
+        item.setAttendeeEmails("attendee@example.test;another@example.test");
+        Timestamp sentOn = item.getInvitationSentOn();
+        when(calendarService.createOrUpdateEvent(any())).thenReturn(null);
         assertThrows(IllegalStateException.class, () -> service.sendInvitationUpdate(10, "sec"));
-        assertEquals("event-10", meeting.getGraphEventId());
-        assertEquals(sentOn, meeting.getInvitationSentOn());
+        assertEquals("event-10", item.getGraphEventId());
+        assertEquals(sentOn, item.getInvitationSentOn());
         assertTrue(service.getMeeting(10).isInvitationNeedsUpdate());
-        verify(repository, times(1)).saveMeeting(meeting);
-        when(calendarService.createOrUpdateEvent(any(), any(), any(), any())).thenReturn(new AgendaCalendarService.CalendarEvent("event-10", null));
+        verify(repository, times(1)).saveItem(item);
+        when(calendarService.createOrUpdateEvent(any())).thenReturn(new AgendaCalendarService.CalendarEvent("event-10", null));
         assertFalse(service.sendInvitationUpdate(10, "sec").isInvitationNeedsUpdate());
     }
 
@@ -1017,12 +997,6 @@ public class AgendaServiceImplBrsTest {
             assertThrows(IllegalStateException.class, () -> service.sendInvitationUpdate(10, "sec"));
         }
         verifyNoInteractions(calendarService);
-    }
-
-    @Test
-    void genericStatusCannotBypassLockRequirements() {
-        assertThrows(IllegalStateException.class, () -> service.setMeetingStatus(10, "Locked", "sec"));
-        assertEquals("Draft", meeting.getStatus());
     }
 
     @Test
@@ -1144,16 +1118,16 @@ public class AgendaServiceImplBrsTest {
         meeting.setCancelledOn(Timestamp.valueOf("2026-10-17 18:30:00"));
         meeting.setGraphEventId("cancelled-event");
         service.reinstateMeeting(10, "Resume the sitting", "sec");
-        verify(calendarService, never()).createOrUpdateEvent(any(), any(), any(), any());
-        when(calendarService.createOrUpdateEvent(any(), any(), any(), any())).thenReturn(new AgendaCalendarService.CalendarEvent("new-event", "https://teams.example.test/new"));
+        verify(calendarService, never()).createOrUpdateEvent(any());
+        when(calendarService.createOrUpdateEvent(any())).thenReturn(new AgendaCalendarService.CalendarEvent("new-event", "https://teams.example.test/new"));
         AgendaMeetingDTO sent = service.sendInvitation(10, "sec");
-        ArgumentCaptor<AgendaMeetingDTO> request = ArgumentCaptor.forClass(AgendaMeetingDTO.class);
-        verify(calendarService).createOrUpdateEvent(request.capture(), any(), any(), any());
-        assertNull(request.getValue().getGraphEventId());
+        ArgumentCaptor<AgendaCalendarService.CalendarEventRequest> request = ArgumentCaptor.forClass(AgendaCalendarService.CalendarEventRequest.class);
+        verify(calendarService).createOrUpdateEvent(request.capture());
+        assertNull(request.getValue().getExistingEventId());
         assertEquals(meeting.getCancelledOn(), request.getValue().getCancelledOn());
-        assertEquals("new-event", sent.getGraphEventId());
+        assertEquals("new-event", item.getGraphEventId());
         assertEquals("Draft", sent.getStatus());
-        assertEquals("https://teams.example.test/new", sent.getTeamsJoinUrl());
+        assertEquals("https://teams.example.test/new", item.getTeamsJoinUrl());
         verify(calendarService, never()).cancelEvent(any(), any());
         verifyNoInteractions(mailService);
     }
@@ -1163,6 +1137,233 @@ public class AgendaServiceImplBrsTest {
         assertThrows(IllegalArgumentException.class, () -> service.reinstateMeeting(999, "Resume the sitting", "sec"));
         verify(repository, never()).saveMeeting(any());
         verifyNoInteractions(calendarService, mailService);
+    }
+
+    // ---- BR-013: one invitation per approved item; the standing roles are on each ----
+
+    private ApprovalForumAgiAgendaItemEntity approvedItem(int agiId, String counterparty, String start, String end, String emails, int minutesAgo) {
+        ApprovalForumAgiAgendaItemEntity other = new ApprovalForumAgiAgendaItemEntity();
+        other.setAgiId(agiId);
+        other.setActive(true);
+        other.setItemStatus("Approved");
+        other.setCounterpartyName(counterparty);
+        other.setStartTime(start);
+        other.setEndTime(end);
+        other.setEstimatedMinutes(30);
+        other.setAttendeeEmails(emails);
+        other.setDcpZar(1234567.0);
+        other.setCreatedOn(Timestamp.valueOf(LocalDateTime.now().minusMinutes(minutesAgo)));
+        other.setAgmAgendaMeetingByAgmId(meeting);
+        lenient().when(repository.getItem(agiId)).thenReturn(other);
+        lenient().when(repository.getItemForUpdate(agiId)).thenReturn(other);
+        return other;
+    }
+
+    private ApprovalForumAgidAgendaItemDocumentEntity paperFor(ApprovalForumAgiAgendaItemEntity owner, int agidId, String fileName) {
+        ApprovalForumAgidAgendaItemDocumentEntity doc = creditPaper();
+        doc.setAgidId(agidId);
+        doc.setAgiAgendaItemByAgiId(owner);
+        doc.setFileName(fileName);
+        doc.setFileData(("%PDF-" + fileName).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        return doc;
+    }
+
+    @Test
+    @DisplayName("Each approved item is invited on its own: its people plus the standing roles, its slot, its paper; no agenda-only invitation")
+    void eachApprovedItemGetsItsOwnInvitation() {
+        readyInvitation();
+        item.setItemStatus("Approved");
+        item.setStartTime("09:00");
+        item.setEndTime("09:30");
+        item.setDcpZar(5000000.0);
+        ApprovalForumAgiAgendaItemEntity second = approvedItem(101, "Second Deal", "10:00", "10:30", "second-team@example.test", 1);
+        when(repository.getItemsForMeeting(10)).thenReturn(Arrays.asList(item, second));
+        when(repository.getDocumentsForItem(100)).thenReturn(Collections.singletonList(paperFor(item, 5, "acme.pdf")));
+        when(repository.getDocumentsForItem(101)).thenReturn(Collections.singletonList(paperFor(second, 6, "second.pdf")));
+        doAnswer(inv -> {
+            AgendaCalendarService.CalendarEventRequest r = inv.getArgument(0);
+            return new AgendaCalendarService.CalendarEvent("event-" + r.getKey(), "https://teams.example.test/" + r.getKey());
+        }).when(calendarService).createOrUpdateEvent(any());
+
+        AgendaMeetingDTO sent = service.sendInvitation(10, "sec");
+
+        ArgumentCaptor<AgendaCalendarService.CalendarEventRequest> captor = ArgumentCaptor.forClass(AgendaCalendarService.CalendarEventRequest.class);
+        verify(calendarService, times(2)).createOrUpdateEvent(captor.capture());
+        AgendaCalendarService.CalendarEventRequest first = captor.getAllValues().get(0);
+        AgendaCalendarService.CalendarEventRequest next = captor.getAllValues().get(1);
+
+        assertEquals("item:100", first.getKey());
+        assertEquals(Arrays.asList("attendee@example.test", "chair@example.test", "secretary@example.test"), first.getAttendees(),
+                "the item's people and the committee's standing roles, nobody else");
+        assertEquals("09:00", first.getStartTime());
+        assertEquals("09:30", first.getEndTime());
+        assertEquals("/agenda/item/100", first.getLink());
+        assertEquals(Collections.singletonList("acme.pdf"), first.getAttachments().stream().map(AgendaCalendarService.Attachment::getName).collect(java.util.stream.Collectors.toList()));
+        assertTrue(first.getHtml().contains("Acme Ltd"));
+        assertFalse(first.getHtml().contains("Second Deal"), "an item's invitation never names another item");
+
+        assertEquals("item:101", next.getKey());
+        assertEquals(Arrays.asList("second-team@example.test", "chair@example.test", "secretary@example.test"), next.getAttendees());
+        assertEquals("10:00", next.getStartTime());
+        assertEquals(Collections.singletonList("second.pdf"), next.getAttachments().stream().map(AgendaCalendarService.Attachment::getName).collect(java.util.stream.Collectors.toList()));
+        assertFalse(next.getHtml().contains("Acme Ltd"));
+
+        assertEquals("event-item:100", item.getGraphEventId());
+        assertEquals("event-item:101", second.getGraphEventId());
+        assertNull(meeting.getGraphEventId(), "no agenda-only event for the standing roles");
+        assertEquals("sec", second.getInvitationSentBy());
+        assertNotNull(second.getInvitationSentOn());
+        assertTrue(sent.isInvitationsSent());
+        assertFalse(sent.isInvitationNeedsUpdate());
+        assertEquals(2, sent.getInvitationResults().size());
+        assertEquals(Arrays.asList("Sent", "Sent"), sent.getInvitationResults().stream().map(AgendaInvitationResultDTO::getOutcome).collect(java.util.stream.Collectors.toList()));
+        assertEquals(Integer.valueOf(101), sent.getInvitationResults().get(1).getAgiId());
+        verifyNoInteractions(mailService);
+    }
+
+    @Test
+    @DisplayName("An item without people is skipped, a failed item is reported and the rest are sent; a retry sends only the failed one")
+    void itemFailuresAreReportedWithoutLosingTheOtherInvitations() {
+        readyInvitation();
+        item.setItemStatus("Approved");
+        item.setStartTime("09:00");
+        item.setEndTime("09:30");
+        ApprovalForumAgiAgendaItemEntity failing = approvedItem(101, "Failing Deal", "10:00", "10:30", "team@example.test", 1);
+        ApprovalForumAgiAgendaItemEntity nobody = approvedItem(102, "Nobody Deal", "11:00", "11:30", null, 2);
+        committee.setChairId(null);
+        committee.setMeetingSecretaryId(null);
+        when(repository.getItemsForMeeting(10)).thenReturn(Arrays.asList(item, failing, nobody));
+        doAnswer(inv -> {
+            AgendaCalendarService.CalendarEventRequest r = inv.getArgument(0);
+            return "item:101".equals(r.getKey()) ? null : new AgendaCalendarService.CalendarEvent("event-" + r.getKey(), null);
+        }).when(calendarService).createOrUpdateEvent(any());
+        AgendaMeetingDTO sent = service.sendInvitation(10, "sec");
+        assertEquals(Arrays.asList("Sent", "Failed", "Skipped"), sent.getInvitationResults().stream().map(AgendaInvitationResultDTO::getOutcome).collect(java.util.stream.Collectors.toList()));
+        assertNull(failing.getGraphEventId());
+        assertNull(failing.getInvitationSentOn());
+        assertEquals("event-item:100", item.getGraphEventId());
+        assertFalse(sent.isInvitationsSent(), "an approved item with people still waits for its invitation");
+        assertTrue(sent.isInvitationNeedsUpdate());
+        // The retry sends only the failed item.
+        doAnswer(inv -> new AgendaCalendarService.CalendarEvent("event-" + ((AgendaCalendarService.CalendarEventRequest) inv.getArgument(0)).getKey(), null))
+                .when(calendarService).createOrUpdateEvent(any());
+        AgendaMeetingDTO retried = service.sendInvitation(10, "sec");
+        assertEquals(Arrays.asList("Unchanged", "Sent", "Skipped"), retried.getInvitationResults().stream().map(AgendaInvitationResultDTO::getOutcome).collect(java.util.stream.Collectors.toList()));
+        assertTrue(retried.isInvitationsSent());
+        assertFalse(retried.isInvitationNeedsUpdate());
+    }
+
+    @Test
+    @DisplayName("Approval numbers the item by its slot time; later approvals keep the order by time, not by approval")
+    void approvalNumbersItemsBySlotTime() {
+        committee.setMandateLevel("L3");
+        item.setItemStatus("Reviewed");
+        item.setStartTime("10:00");
+        item.setEndTime("10:30");
+        item.setCreatedOn(Timestamp.valueOf(LocalDateTime.now().minusMinutes(10)));
+        ApprovalForumAgidAgendaItemDocumentEntity accepted = creditPaper();
+        accepted.setValidationStatus("Accepted");
+        when(repository.getDocumentsForItem(100)).thenReturn(Collections.singletonList(accepted));
+        ApprovalForumAgiAgendaItemEntity earlier = approvedItem(101, "Earlier slot", "09:00", "09:30", null, 1);
+        earlier.setAgendaNumber("3.1");
+        when(repository.getItemsForMeeting(10)).thenReturn(Arrays.asList(item, earlier));
+
+        AgendaItemDTO approved = service.approveItem(100, "ok", "chair");
+
+        assertEquals("Approved", approved.getItemStatus());
+        assertEquals("3.2", approved.getAgendaNumber(), "the 10:00 item follows the 09:00 item whatever the approval order");
+        assertEquals("3.1", earlier.getAgendaNumber());
+        assertEquals("Draft", meeting.getStatus(), "numbering on approval does not compile or lock anything");
+        ArgumentCaptor<AgendaItemDTO> mailed = ArgumentCaptor.forClass(AgendaItemDTO.class);
+        verify(mailService).sendItemApprovedMail(mailed.capture());
+        assertEquals("3.2", mailed.getValue().getAgendaNumber());
+    }
+
+    @Test
+    @DisplayName("Removing an invited item cancels its own event only and closes the gap in the numbering")
+    void removingAnInvitedItemCancelsItsEventAndRenumbers() {
+        item.setItemStatus("Approved");
+        item.setAgendaNumber("3.1");
+        item.setStartTime("09:00");
+        item.setEndTime("09:30");
+        item.setGraphEventId("event-item:100");
+        item.setInvitationSentOn(Timestamp.valueOf("2026-10-17 12:00:00"));
+        ApprovalForumAgiAgendaItemEntity later = approvedItem(101, "Later slot", "10:00", "10:30", null, 1);
+        later.setAgendaNumber("3.2");
+        later.setGraphEventId("event-item:101");
+        meeting.setGraphEventId("event-10");
+        when(repository.getItemsForMeeting(10)).thenReturn(Arrays.asList(item, later));
+
+        AgendaItemDTO removed = service.removeItem(100, "sec", "Withdrawn by the sponsor");
+
+        assertEquals("Removed", removed.getItemStatus());
+        verify(calendarService).cancelEvent("event-item:100", "Withdrawn by the sponsor");
+        verify(calendarService, never()).cancelEvent(eq("event-item:101"), any());
+        verify(calendarService, never()).cancelEvent(eq("event-10"), any());
+        assertNull(item.getGraphEventId());
+        assertNull(item.getInvitationSentOn());
+        assertNull(item.getAgendaNumber());
+        assertEquals("3.1", later.getAgendaNumber());
+        ArgumentCaptor<ApprovalForumAgwAgendaWorkflowActionEntity> audit = ArgumentCaptor.forClass(ApprovalForumAgwAgendaWorkflowActionEntity.class);
+        verify(repository, times(2)).saveWorkflowAction(audit.capture());
+        assertEquals(Arrays.asList("InvitationCancelled", "Remove"), audit.getAllValues().stream().map(ApprovalForumAgwAgendaWorkflowActionEntity::getAction).collect(java.util.stream.Collectors.toList()));
+    }
+
+    @Test
+    @DisplayName("A failed cancellation keeps the item and its invitation as they are")
+    void failedItemCancellationKeepsTheItem() {
+        item.setItemStatus("Approved");
+        item.setGraphEventId("event-item:100");
+        doThrow(new RuntimeException("graph down")).when(calendarService).cancelEvent(eq("event-item:100"), any());
+        assertThrows(IllegalStateException.class, () -> service.removeItem(100, "sec", "Withdrawn"));
+        assertEquals("Approved", item.getItemStatus());
+        assertEquals("event-item:100", item.getGraphEventId());
+        verify(repository, never()).saveItem(any());
+    }
+
+    @Test
+    @DisplayName("Cancelling the meeting cancels every item's event, and any agenda-only event left from before")
+    void cancelMeetingCancelsEveryEvent() {
+        item.setItemStatus("Approved");
+        item.setGraphEventId("event-item:100");
+        meeting.setGraphEventId("event-10");
+        service.cancelMeeting(10, "Committee unavailable", "sec");
+        verify(calendarService).cancelEvent("event-item:100", "Committee unavailable");
+        verify(calendarService).cancelEvent("event-10", "Committee unavailable");
+    }
+
+    @Test
+    @DisplayName("Reinstating a meeting forgets the items' cancelled invitations as well")
+    void reinstatementClearsItemInvitations() {
+        meeting.setStatus("Cancelled");
+        meeting.setGraphEventId("cancelled-event");
+        item.setItemStatus("Approved");
+        item.setGraphEventId("cancelled-item-event");
+        item.setInvitationSnapshot("old");
+        item.setInvitationSentOn(Timestamp.valueOf("2026-10-17 12:00:00"));
+        service.reinstateMeeting(10, "Resume the sitting", "sec");
+        assertNull(item.getGraphEventId());
+        assertNull(item.getInvitationSnapshot());
+        assertNull(item.getInvitationSentOn());
+        verify(repository).saveItem(item);
+        verifyNoInteractions(calendarService, mailService);
+    }
+
+    @Test
+    @DisplayName("The item page shows its own invitation state")
+    void itemCarriesItsOwnInvitationState() {
+        readyInvitation();
+        item.setItemStatus("Approved");
+        assertNull(service.getItem(100).getInvitationSentOn());
+        service.sendInvitation(10, "sec");
+        AgendaItemDTO dto = service.getItem(100);
+        assertEquals("event-10", dto.getGraphEventId());
+        assertEquals("sec", dto.getInvitationSentBy());
+        assertNotNull(dto.getInvitationSentOn());
+        assertFalse(dto.isInvitationNeedsUpdate());
+        item.setStartTime("14:00");
+        item.setEndTime("14:30");
+        assertTrue(service.getItem(100).isInvitationNeedsUpdate());
     }
 
     // ---- Close / re-open (RULE-015) ----

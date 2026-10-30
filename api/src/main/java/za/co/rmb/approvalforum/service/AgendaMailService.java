@@ -43,6 +43,9 @@ public interface AgendaMailService {
     /** The secretary or chair approved or declined the quorum exception: to the analysts. */
     void sendQuorumExceptionDecidedMail(AgendaItemDTO item, boolean approved, String note);
 
+    /** ';'-separated user ids to their AD mail addresses (the id itself when AD has none). */
+    String resolveEmails(String userIds);
+
     void sendMeetingCancelledMail(AgendaMeetingDTO meeting, String recipientEmails, String reason);
 
     void sendMeetingClosedMail(AgendaMeetingDTO meeting, String recipientEmails);

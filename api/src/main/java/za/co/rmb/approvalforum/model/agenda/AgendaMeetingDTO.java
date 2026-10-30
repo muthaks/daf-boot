@@ -67,6 +67,8 @@ public class AgendaMeetingDTO {
     private Timestamp invitationSentOn;
     private String invitationSentBy;
     private boolean invitationNeedsUpdate;
+    /** Every approved item with people to invite, and the standing roles, hold a sent invitation. */
+    private boolean invitationsSent;
     private String actualStartTime;
     private String actualEndTime;
     private Boolean quorumAchieved;
@@ -77,6 +79,8 @@ public class AgendaMeetingDTO {
     private Timestamp closedOn;
     private List<AgendaMeetingRecordDTO> records;
     private List<AgendaWorkflowActionDTO> actions;
+    /** Set on the answer to Send invitations / Send update: what happened to each invitation. */
+    private List<AgendaInvitationResultDTO> invitationResults;
 
     public String getStartTime() { return startTime; }
     public void setStartTime(String startTime) { this.startTime = startTime; }
@@ -99,6 +103,8 @@ public class AgendaMeetingDTO {
     public void setInvitationSentBy(String value) { invitationSentBy = value; }
     public boolean isInvitationNeedsUpdate() { return invitationNeedsUpdate; }
     public void setInvitationNeedsUpdate(boolean value) { invitationNeedsUpdate = value; }
+    public boolean isInvitationsSent() { return invitationsSent; }
+    public void setInvitationsSent(boolean value) { invitationsSent = value; }
 
     public String getActualStartTime() { return actualStartTime; }
     public void setActualStartTime(String actualStartTime) { this.actualStartTime = actualStartTime; }
@@ -126,6 +132,9 @@ public class AgendaMeetingDTO {
 
     public List<AgendaMeetingRecordDTO> getRecords() { return records; }
     public void setRecords(List<AgendaMeetingRecordDTO> records) { this.records = records; }
+
+    public List<AgendaInvitationResultDTO> getInvitationResults() { return invitationResults; }
+    public void setInvitationResults(List<AgendaInvitationResultDTO> value) { invitationResults = value; }
 
     public List<AgendaWorkflowActionDTO> getActions() { return actions; }
     public void setActions(List<AgendaWorkflowActionDTO> actions) { this.actions = actions; }
