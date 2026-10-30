@@ -46,6 +46,57 @@
 
     <build>
         <plugins>
+            <!-- The DAF rules model and clients are built from the legacy review mandates repository
+                 (approvalforumrules), which publishes nothing to Nexus, so the transformer could not
+                 resolve them on TeamCity. The three jars live under lib/ and are installed into the local
+                 repository before anything else runs, so the build is the same on every machine. To
+                 refresh them: build approvalforumrules in review mandates and copy the jars here. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-install-plugin</artifactId>
+                <version>3.1.4</version>
+                <executions>
+                    <execution>
+                        <id>approvalforumrules-model</id>
+                        <phase>validate</phase>
+                        <goals><goal>install-file</goal></goals>
+                        <configuration>
+                            <file>${project.basedir}/lib/approvalforumrules-model-1.0.0-SNAPSHOT.jar</file>
+                            <groupId>za.co.rmb</groupId>
+                            <artifactId>approvalforumrules-model</artifactId>
+                            <version>1.0.0-SNAPSHOT</version>
+                            <packaging>jar</packaging>
+                            <generatePom>true</generatePom>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>approvalforumrules-client</id>
+                        <phase>validate</phase>
+                        <goals><goal>install-file</goal></goals>
+                        <configuration>
+                            <file>${project.basedir}/lib/approvalforumrules-client-1.0.0-SNAPSHOT.jar</file>
+                            <groupId>za.co.rmb</groupId>
+                            <artifactId>approvalforumrules-client</artifactId>
+                            <version>1.0.0-SNAPSHOT</version>
+                            <packaging>jar</packaging>
+                            <generatePom>true</generatePom>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>approvalforumrules-rest-client</id>
+                        <phase>validate</phase>
+                        <goals><goal>install-file</goal></goals>
+                        <configuration>
+                            <file>${project.basedir}/lib/approvalforumrules-rest-client-1.0.0-SNAPSHOT.jar</file>
+                            <groupId>za.co.rmb</groupId>
+                            <artifactId>approvalforumrules-rest-client</artifactId>
+                            <version>1.0.0-SNAPSHOT</version>
+                            <packaging>jar</packaging>
+                            <generatePom>true</generatePom>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.eclipse.transformer</groupId>
                 <artifactId>transformer-maven-plugin</artifactId>

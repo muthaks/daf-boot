@@ -9,7 +9,7 @@ The Delegated Authority Forum backend (the legacy review mandates services) on J
 | `docgen/`      | `daf-docgen`: the legacy `approvalforum-docgen` (PDF agendas and minutes) under `/docgen`                    |
 | `soap/`        | `daf-soap`: the legacy `approvalforum-soap` (external create/cancel requests) under `/approvalforum-soap`    |
 | `support/`     | Shared compatibility code: SQL Server dialect, legacy JSON and error behaviour, Guice-style circular proxies |
-| `legacy-libs/` | The legacy client and model jars, rewritten from `javax` to `jakarta` at build time (Eclipse Transformer)    |
+| `legacy-libs/` | The legacy client and model jars, rewritten from `javax` to `jakarta` at build time (Eclipse Transformer); `lib/` holds the three `approvalforumrules` jars, which Nexus does not have |
 | `tools/`       | `sync-legacy.py` (copies the legacy sources), `legacy-endpoints.py` (the expected endpoint lists)            |
 | `deploy/`      | PAM deploy tool, `daf` stack, DEV target, `releases/dev.env`                                                 |
 | `docs/`        | [`PARITY_PLAN.md`](docs/PARITY_PLAN.md) approach, parity tests and results                                   |
