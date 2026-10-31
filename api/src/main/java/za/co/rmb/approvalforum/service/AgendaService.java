@@ -22,6 +22,12 @@ public interface AgendaService {
 
     AgendaMeetingDTO getMeeting(int agmId);
 
+    /**
+     * The meeting as {@code userId} may see it: items they may open (see {@link #canViewItem}) in full,
+     * every other item reduced to its slot (id, times, duration, status, agenda number).
+     */
+    AgendaMeetingDTO getMeetingFor(int agmId, String userId, AgendaAccess access);
+
     AgendaItemDTO bookItem(BookAgendaItemRequest request, String user);
 
     /**
@@ -68,6 +74,18 @@ public interface AgendaService {
      * secretary / chair of the committee the item sits on.
      */
     boolean canCaptureOutcome(int agiId, String userId, AgendaAccess access);
+
+    /** Whether {@code userId} is the secretary or chair serving the committee this meeting belongs to. */
+    boolean decidesForMeeting(int agmId, String userId, AgendaAccess access);
+
+    /** Whether {@code userId} is the secretary or chair serving this committee. */
+    boolean decidesForCommittee(int agcId, String userId, AgendaAccess access);
+
+    /** Whether {@code userId} may open the item this document belongs to. */
+    boolean canViewDocument(int agidId, String userId, AgendaAccess access);
+
+    /** Whether {@code userId} may close or waive this condition: the secretary or chair of its item's committee. */
+    boolean canCloseCondition(int agcaId, String userId, AgendaAccess access);
 
     /**
      * Whether {@code userId} may change the participant roster: the owner while the meeting has
@@ -210,5 +228,8 @@ public interface AgendaService {
     // ---- reporting ----
 
     AgendaReportSummaryDTO getReportSummary(Timestamp from, Timestamp to);
+
+    /** The same aggregates; the late-item details list only the items {@code userId} may open. */
+    AgendaReportSummaryDTO getReportSummary(Timestamp from, Timestamp to, String userId, AgendaAccess access);
 
 }

@@ -541,6 +541,12 @@ public class AgendaServiceImpl implements AgendaService {
     }
 
     @Override
+    public AgendaMeetingDTO getMeetingFor(int agmId, String userId, AgendaAccess access) {
+        ApprovalForumAgmAgendaMeetingEntity entity = agendaRepository.getMeeting(agmId);
+        return entity == null ? null : toMeetingDTO(entity, true, item -> canView(item, userId, access));
+    }
+
+    @Override
     public AgendaItemDTO bookItem(BookAgendaItemRequest request, String user) {
         return bookItem(request, user, AgendaAccess.none());
     }
@@ -1259,6 +1265,29 @@ public class AgendaServiceImpl implements AgendaService {
                 || (roles.isChairperson() && servesAsChair(committee, userId));
     }
 
+    @Override
+    public boolean decidesForMeeting(int agmId, String userId, AgendaAccess access) {
+        ApprovalForumAgmAgendaMeetingEntity meeting = agendaRepository.getMeeting(agmId);
+        return meeting != null && decidesFor(meeting.getAgcAgendaCommitteeByAgcId(), userId, access);
+    }
+
+    @Override
+    public boolean decidesForCommittee(int agcId, String userId, AgendaAccess access) {
+        return decidesFor(agendaRepository.getCommittee(agcId), userId, access);
+    }
+
+    @Override
+    public boolean canViewDocument(int agidId, String userId, AgendaAccess access) {
+        ApprovalForumAgidAgendaItemDocumentEntity document = agendaRepository.getDocument(agidId);
+        return document != null && canView(document.getAgiAgendaItemByAgiId(), userId, access);
+    }
+
+    @Override
+    public boolean canCloseCondition(int agcaId, String userId, AgendaAccess access) {
+        ApprovalForumAgcaAgendaConditionEntity condition = agendaRepository.getCondition(agcaId);
+        return condition != null && decidesFor(committeeOf(condition.getAgiAgendaItemByAgiId()), userId, access);
+    }
+
     /**
      * The roster (chair, analysts, quorum roles) from the committee's most recent item, so a
      * new item can be pre-filled from the previous meeting. The values are copied onto the new
@@ -1267,7 +1296,27 @@ public class AgendaServiceImpl implements AgendaService {
     @Override
     public AgendaItemDTO getLastRoster(int agcId) {
         ApprovalForumAgiAgendaItemEntity item = agendaRepository.getLatestItemForCommittee(agcId);
-        return item == null ? null : toItemDTO(item, false);
+        if (item == null) {
+            return null;
+        }
+        // Only the roster is shared; the paper's details stay with that item's analyst.
+        AgendaItemDTO full = mapItem(item, false);
+        AgendaItemDTO roster = new AgendaItemDTO();
+        roster.setChair(full.getChair());
+        roster.setLecRep(full.getLecRep());
+        roster.setEqMemberFrmExec(full.getEqMemberFrmExec());
+        roster.setBusinessRep1(full.getBusinessRep1());
+        roster.setSeniorBusinessRep(full.getSeniorBusinessRep());
+        roster.setPortfolioCce1(full.getPortfolioCce1());
+        roster.setPortfolioCce2(full.getPortfolioCce2());
+        roster.setIndependentMember(full.getIndependentMember());
+        roster.setScribe(full.getScribe());
+        roster.setMezzOverlayAttendees(full.getMezzOverlayAttendees());
+        roster.setEsgOverlayAttendees(full.getEsgOverlayAttendees());
+        roster.setAdditionalTeamAttendees(full.getAdditionalTeamAttendees());
+        roster.setAttendeeEmails(full.getAttendeeEmails());
+        roster.setParticipants(effectiveParticipants(item).stream().map(this::toParticipantDTO).collect(Collectors.toList()));
+        return roster;
     }
 
     @Override
@@ -2369,7 +2418,7 @@ public class AgendaServiceImpl implements AgendaService {
         ApprovalForumAgpmAgendaPostMeetingEntity entity = agendaRepository.getPostMeetingForItem(dto.getAgiId());
         if (entity != null && entity.isLocked()) {
             throw new IllegalStateException("Post-meeting record for item " + dto.getAgiId()
-                    + " is locked after sign-off - a reviewer must unlock it before further edits");
+                    + " is locked after sign-off - the chairperson or secretary must unlock it before further edits");
         }
         if (entity == null) {
             entity = new ApprovalForumAgpmAgendaPostMeetingEntity();
@@ -2386,10 +2435,16 @@ public class AgendaServiceImpl implements AgendaService {
         entity.setMinuteTaker(dto.getMinuteTaker());
         entity.setScribe(dto.getScribe());
         entity.setAdministrator(dto.getAdministrator());
-        entity.setAnalystSignOffBy(dto.getAnalystSignOffBy());
-        entity.setAnalystSignOffOn(dto.getAnalystSignOffOn());
-        entity.setChairSignOffBy(dto.getChairSignOffBy());
-        entity.setChairSignOffOn(dto.getChairSignOffOn());
+        // A sign-off is recorded as the caller, at the server's time, the first time one is sent. The
+        // names and times in the request are never stored, and a recorded sign-off is never overwritten.
+        if (dto.getAnalystSignOffOn() != null && entity.getAnalystSignOffOn() == null) {
+            entity.setAnalystSignOffBy(user);
+            entity.setAnalystSignOffOn(now());
+        }
+        if (dto.getChairSignOffOn() != null && entity.getChairSignOffOn() == null) {
+            entity.setChairSignOffBy(user);
+            entity.setChairSignOffOn(now());
+        }
         entity.setDocStashOutputId(dto.getDocStashOutputId());
         entity.setActualRating(dto.getActualRating());
         entity.setActualPurpose(dto.getActualPurpose());
@@ -2399,7 +2454,7 @@ public class AgendaServiceImpl implements AgendaService {
         entity.setDecisionDate(dto.getDecisionDate() != null ? dto.getDecisionDate()
                 : (dto.getDecisionType() != null && entity.getDecisionDate() == null ? now() : entity.getDecisionDate()));
 
-        // Chair sign-off locks the record from further edits; only a reviewer can unlock it.
+        // Chair sign-off locks the record from further edits; the chairperson or secretary unlocks it.
         if (entity.getChairSignOffOn() != null && !entity.isLocked()) {
             entity.setLocked(true);
             entity.setLockedBy(user);
@@ -2447,12 +2502,12 @@ public class AgendaServiceImpl implements AgendaService {
         if (meeting.getMeetingDate() == null) return true;
         LocalDate date = meeting.getMeetingDate().toLocalDateTime().toLocalDate();
         String time = !isBlank(meeting.getEndTime()) ? meeting.getEndTime() : meeting.getStartTime();
-        LocalDateTime end = date.atStartOfDay();
+        LocalDateTime end = date.plusDays(1).atStartOfDay();
         if (!isBlank(time)) {
             try {
                 end = date.atTime(LocalTime.parse(time.trim()));
             } catch (java.time.format.DateTimeParseException ignored) {
-                // An unparseable time falls back to the day itself.
+                // An unparseable time falls back to the end of the day.
             }
         }
         return !end.isAfter(now().toLocalDateTime());
@@ -2783,6 +2838,11 @@ public class AgendaServiceImpl implements AgendaService {
         if (!CONDITION_CLOSED.equals(status) && !CONDITION_WAIVED.equals(status)) {
             throw new IllegalStateException("A condition can only be closed as Closed or Waived");
         }
+        ApprovalForumAgiAgendaItemEntity item = entity.getAgiAgendaItemByAgiId();
+        if (item != null && item.getAgmAgendaMeetingByAgmId() != null
+                && MEETING_CLOSED.equals(item.getAgmAgendaMeetingByAgmId().getStatus())) {
+            throw new IllegalStateException("Meeting is closed - conditions can no longer be changed");
+        }
         requireText(closureComments, "Closure comments are required when a condition is closed or waived");
         entity.setStatus(status);
         entity.setClosureComments(closureComments.trim());
@@ -2795,6 +2855,11 @@ public class AgendaServiceImpl implements AgendaService {
 
     @Override
     public AgendaReportSummaryDTO getReportSummary(Timestamp from, Timestamp to) {
+        return getReportSummary(from, to, null, AgendaAccess.none());
+    }
+
+    @Override
+    public AgendaReportSummaryDTO getReportSummary(Timestamp from, Timestamp to, String userId, AgendaAccess access) {
         AgendaReportSummaryDTO report = new AgendaReportSummaryDTO();
         report.setFrom(from);
         report.setTo(to);
@@ -2814,7 +2879,9 @@ public class AgendaServiceImpl implements AgendaService {
             bump(report.getItemsByPurpose(), item.getPurposeOfSubmission());
             if (item.isLateSubmission()) {
                 report.setLateItems(report.getLateItems() + 1);
-                report.getLateItemDetails().add(toItemDTO(item, false));
+                if (canView(item, userId, access)) {
+                    report.getLateItemDetails().add(toItemDTO(item, false));
+                }
             }
             if (!STATUS_REMOVED.equals(item.getItemStatus()) && !STATUS_REJECTED.equals(item.getItemStatus())
                     && !mandatoryDocumentsPresent(item)) {
@@ -3163,6 +3230,12 @@ public class AgendaServiceImpl implements AgendaService {
     }
 
     private AgendaMeetingDTO toMeetingDTO(ApprovalForumAgmAgendaMeetingEntity entity, boolean withItems) {
+        return toMeetingDTO(entity, withItems, item -> true);
+    }
+
+    /** Items the caller may not open are reduced to their slot, so a booking page can still avoid clashes. */
+    private AgendaMeetingDTO toMeetingDTO(ApprovalForumAgmAgendaMeetingEntity entity, boolean withItems,
+                                          java.util.function.Predicate<ApprovalForumAgiAgendaItemEntity> visible) {
         AgendaMeetingDTO dto = new AgendaMeetingDTO();
         dto.setAgmId(entity.getAgmId());
         ApprovalForumAgcAgendaCommitteeEntity committee = entity.getAgcAgendaCommitteeByAgcId();
@@ -3201,6 +3274,9 @@ public class AgendaServiceImpl implements AgendaService {
                     .map(this::toActionDTO).collect(Collectors.toList()));
             dto.setItems(agendaRepository.getItemsForMeeting(entity.getAgmId()).stream()
                     .map(i -> {
+                        if (!visible.test(i)) {
+                            return slotOnly(i);
+                        }
                         AgendaItemDTO itemDto = toItemDTO(i, false);
                         ApprovalForumAgpmAgendaPostMeetingEntity pm =
                                 agendaRepository.getPostMeetingForItem(i.getAgiId());
@@ -3213,6 +3289,24 @@ public class AgendaServiceImpl implements AgendaService {
             dto.setInvitationNeedsUpdate(invitationNeedsUpdate(entity, items));
             dto.setInvitationsSent(invitationsSent(entity, items));
         }
+        return dto;
+    }
+
+    /** The slot an item occupies and nothing of the paper: for callers who may not open the item. */
+    private AgendaItemDTO slotOnly(ApprovalForumAgiAgendaItemEntity entity) {
+        AgendaItemDTO dto = new AgendaItemDTO();
+        dto.setAgiId(entity.getAgiId());
+        ApprovalForumAgmAgendaMeetingEntity meeting = entity.getAgmAgendaMeetingByAgmId();
+        if (meeting != null) {
+            dto.setAgmId(meeting.getAgmId());
+            dto.setMeetingDate(meeting.getMeetingDate());
+            dto.setMeetingStatus(meeting.getStatus());
+        }
+        dto.setItemStatus(entity.getItemStatus());
+        dto.setAgendaNumber(entity.getAgendaNumber());
+        dto.setStartTime(entity.getStartTime());
+        dto.setEndTime(entity.getEndTime());
+        dto.setEstimatedMinutes(entity.getEstimatedMinutes());
         return dto;
     }
 

@@ -198,6 +198,56 @@ public class ApprovalForumAgendaResource {
                 + agiId + " can record what happened at the meeting.");
     }
 
+    /** 403 unless the caller is the secretary or chair serving the committee this meeting belongs to. */
+    private Response forbiddenUnlessDecidesForMeeting(String what, int agmId) {
+        if (agendaService.decidesForMeeting(agmId, userName(), access())) {
+            return null;
+        }
+        logger.warn("Agenda: {} refused for {} on meeting {}", what, userName(), agmId);
+        return Response.status(Response.Status.FORBIDDEN).entity(java.util.Collections.singletonMap("message",
+                "Only the secretary or chair of this meeting's committee may " + what + ".")).build();
+    }
+
+    /** 403 unless the caller is the secretary or chair serving this committee. */
+    private Response forbiddenUnlessDecidesForCommittee(String what, int agcId) {
+        if (agendaService.decidesForCommittee(agcId, userName(), access())) {
+            return null;
+        }
+        logger.warn("Agenda: {} refused for {} on committee {}", what, userName(), agcId);
+        return Response.status(Response.Status.FORBIDDEN).entity(java.util.Collections.singletonMap("message",
+                "Only the secretary or chair of this committee may " + what + ".")).build();
+    }
+
+    /** 403 unless the caller is the secretary or chair serving the committee this item sits on. */
+    private Response forbiddenUnlessDecidesForItem(String what, int agiId) {
+        if (agendaService.canCaptureOutcome(agiId, userName(), access())) {
+            return null;
+        }
+        return forbidden(what, agiId, "Only the secretary or chair of the committee for agenda item " + agiId
+                + " may " + what + ".");
+    }
+
+    /** 403 unless the caller may open the item this document belongs to. */
+    private Response forbiddenUnlessCanViewDocument(String what, int agidId) {
+        if (agendaService.canViewDocument(agidId, userName(), access())) {
+            return null;
+        }
+        logger.warn("Agenda: {} refused for {} on document {}", what, userName(), agidId);
+        return Response.status(Response.Status.FORBIDDEN).entity(java.util.Collections.singletonMap("message",
+                "Agenda document " + agidId + " belongs to another analyst's item.")).build();
+    }
+
+    /** 403 unless the caller is the scheduler's own user (`af.scheduler.user`: the subject of `af.token`). */
+    private Response forbiddenUnlessScheduler(String what) {
+        String scheduler = afSettings.get("af.scheduler.user");
+        if (scheduler != null && !scheduler.trim().isEmpty() && scheduler.trim().equalsIgnoreCase(userName())) {
+            return null;
+        }
+        logger.warn("Agenda: {} refused for {} - scheduler only", what, userName());
+        return Response.status(Response.Status.FORBIDDEN).entity(java.util.Collections.singletonMap("message",
+                "Only the agenda scheduler may " + what + ".")).build();
+    }
+
     /** 403 with the same message shape as the business-rule 409, or null when allowed. */
     private Response forbiddenUnless(String what, String... roles) {
         if (hasAnyRole(roles)) {
@@ -295,6 +345,8 @@ public class ApprovalForumAgendaResource {
         tokenValidation(context);
         Response denied = forbiddenUnless("update committee configuration", ROLE_SECRETARY, ROLE_CHAIRPERSON);
         if (denied != null) return denied;
+        denied = forbiddenUnlessDecidesForCommittee("update committee configuration", committee.getAgcId());
+        if (denied != null) return denied;
         try {
             return Response.ok(agendaService.updateCommittee(committee, userName())).build();
         } catch (IllegalStateException e) {
@@ -344,6 +396,8 @@ public class ApprovalForumAgendaResource {
         tokenValidation(context);
         Response denied = forbiddenUnless("deactivate committees", ROLE_SECRETARY, ROLE_CHAIRPERSON);
         if (denied != null) return denied;
+        denied = forbiddenUnlessDecidesForCommittee("deactivate committees", agcId);
+        if (denied != null) return denied;
         return Response.ok(agendaService.deactivateCommittee(agcId, userName())).build();
     }
 
@@ -357,6 +411,8 @@ public class ApprovalForumAgendaResource {
         logger.info("createMeeting(committee {})", meeting.getAgcId());
         tokenValidation(context);
         Response denied = forbiddenUnless("schedule meetings", ROLE_SECRETARY, ROLE_CHAIRPERSON);
+        if (denied != null) return denied;
+        denied = forbiddenUnlessDecidesForCommittee("schedule meetings", meeting.getAgcId());
         if (denied != null) return denied;
         try {
             return Response.ok(agendaService.createMeeting(meeting, userName())).build();
@@ -377,6 +433,8 @@ public class ApprovalForumAgendaResource {
         tokenValidation(context);
         Response denied = forbiddenUnless("update meetings", ROLE_SECRETARY, ROLE_CHAIRPERSON);
         if (denied != null) return denied;
+        denied = forbiddenUnlessDecidesForMeeting("update meetings", agmId);
+        if (denied != null) return denied;
         meeting.setAgmId(agmId);
         try {
             return Response.ok(agendaService.updateMeeting(meeting, userName())).build();
@@ -395,6 +453,8 @@ public class ApprovalForumAgendaResource {
         tokenValidation(context);
         Response denied = forbiddenUnless("cancel meetings", ROLE_SECRETARY, ROLE_CHAIRPERSON);
         if (denied != null) return denied;
+        denied = forbiddenUnlessDecidesForMeeting("cancel meetings", agmId);
+        if (denied != null) return denied;
         try {
             return Response.ok(agendaService.cancelMeeting(agmId, reason, userName())).build();
         } catch (IllegalStateException e) {
@@ -410,6 +470,8 @@ public class ApprovalForumAgendaResource {
     public Response reinstateMeeting(@PathParam("agmId") int agmId, @QueryParam("reason") String reason) {
         tokenValidation(context);
         Response denied = forbiddenUnless("reinstate meetings", ROLE_SECRETARY, ROLE_CHAIRPERSON);
+        if (denied != null) return denied;
+        denied = forbiddenUnlessDecidesForMeeting("reinstate meetings", agmId);
         if (denied != null) return denied;
         try {
             return Response.ok(agendaService.reinstateMeeting(agmId, reason, userName())).build();
@@ -490,7 +552,7 @@ public class ApprovalForumAgendaResource {
     public Response getMeeting(@PathParam("agmId") int agmId) {
         logger.info("getMeeting({})", agmId);
         tokenValidation(context);
-        return Response.ok(agendaService.getMeeting(agmId)).build();
+        return Response.ok(agendaService.getMeetingFor(agmId, userName(), access())).build();
     }
 
     @POST
@@ -500,6 +562,8 @@ public class ApprovalForumAgendaResource {
     public Response sendInvitation(@PathParam("agmId") int agmId) {
         tokenValidation(context);
         Response denied = forbiddenUnless("send the calendar invitation", ROLE_SECRETARY, ROLE_CHAIRPERSON);
+        if (denied != null) return denied;
+        denied = forbiddenUnlessDecidesForMeeting("send the calendar invitation", agmId);
         if (denied != null) return denied;
         try {
             return Response.ok(agendaService.sendInvitation(agmId, userName())).build();
@@ -515,6 +579,8 @@ public class ApprovalForumAgendaResource {
     public Response sendInvitationUpdate(@PathParam("agmId") int agmId) {
         tokenValidation(context);
         Response denied = forbiddenUnless("send the updated calendar invitation", ROLE_SECRETARY, ROLE_CHAIRPERSON);
+        if (denied != null) return denied;
+        denied = forbiddenUnlessDecidesForMeeting("send the updated calendar invitation", agmId);
         if (denied != null) return denied;
         try {
             return Response.ok(agendaService.sendInvitationUpdate(agmId, userName())).build();
@@ -537,6 +603,8 @@ public class ApprovalForumAgendaResource {
         tokenValidation(context);
         Response denied = forbiddenUnless("mark the meeting held", ROLE_SECRETARY, ROLE_CHAIRPERSON);
         if (denied != null) return denied;
+        denied = forbiddenUnlessDecidesForMeeting("mark the meeting held", agmId);
+        if (denied != null) return denied;
         try {
             return Response.ok(agendaService.markMeetingHeld(agmId, actualStartTime, actualEndTime, quorumAchieved, userName())).build();
         } catch (IllegalStateException e) {
@@ -555,6 +623,8 @@ public class ApprovalForumAgendaResource {
         tokenValidation(context);
         Response denied = forbiddenUnless("close the meeting record", ROLE_SECRETARY, ROLE_CHAIRPERSON);
         if (denied != null) return denied;
+        denied = forbiddenUnlessDecidesForMeeting("close the meeting record", agmId);
+        if (denied != null) return denied;
         try {
             return Response.ok(agendaService.closeMeeting(agmId, userName())).build();
         } catch (IllegalStateException e) {
@@ -572,6 +642,8 @@ public class ApprovalForumAgendaResource {
         logger.info("reopenMeeting({})", agmId);
         tokenValidation(context);
         Response denied = forbiddenUnless("re-open a closed meeting record", ROLE_CHAIRPERSON, ROLE_SECRETARY);
+        if (denied != null) return denied;
+        denied = forbiddenUnlessDecidesForMeeting("re-open a closed meeting record", agmId);
         if (denied != null) return denied;
         try {
             return Response.ok(agendaService.reopenMeeting(agmId, reason, userName())).build();
@@ -602,6 +674,8 @@ public class ApprovalForumAgendaResource {
         logger.info("addMeetingRecord({})", agmId);
         tokenValidation(context);
         Response denied = forbiddenUnless("attach meeting records", ROLE_SECRETARY, ROLE_CHAIRPERSON);
+        if (denied != null) return denied;
+        denied = forbiddenUnlessDecidesForMeeting("attach meeting records", agmId);
         if (denied != null) return denied;
         record.setAgmId(agmId);
         try {
@@ -894,6 +968,8 @@ public class ApprovalForumAgendaResource {
     public Response downloadDocument(@PathParam("agidId") int agidId) {
         logger.info("downloadDocument({})", agidId);
         tokenValidation(context);
+        Response denied = forbiddenUnlessCanViewDocument("download agenda documents", agidId);
+        if (denied != null) return denied;
 
         AgendaItemDocumentDTO document = agendaService.getDocument(agidId);
         byte[] data = agendaService.getDocumentData(agidId);
@@ -979,6 +1055,8 @@ public class ApprovalForumAgendaResource {
         // correction; the unlock is audited. A reviewer outranks neither and cannot.
         Response denied = forbiddenUnless("unlock a signed-off post-meeting record", ROLE_CHAIRPERSON, ROLE_SECRETARY);
         if (denied != null) return denied;
+        denied = forbiddenUnlessDecidesForItem("unlock a signed-off post-meeting record", agiId);
+        if (denied != null) return denied;
         return Response.ok(agendaService.unlockPostMeeting(agiId, userName())).build();
     }
 
@@ -1017,6 +1095,8 @@ public class ApprovalForumAgendaResource {
         logger.info("returnItem({})", agiId);
         tokenValidation(context);
         Response denied = forbiddenUnless("return agenda items", reviewerRole(), ROLE_APPROVER, ROLE_CHAIRPERSON, ROLE_SECRETARY);
+        if (denied != null) return denied;
+        denied = forbiddenUnlessCanView("return", agiId);
         if (denied != null) return denied;
         try {
             return Response.ok(agendaService.returnItem(agiId, reason, userName())).build();
@@ -1113,7 +1193,7 @@ public class ApprovalForumAgendaResource {
     @Path("/items/{agiId}/approve")
     @Produces("application/json")
     @Transactional
-    @ApiOperation(value = "Approve a submitted item onto the agenda (Approver/Chair)",
+    @ApiOperation(value = "Approve a submitted item onto the agenda (Approver, or the committee's chair or secretary)",
             authorizations = @Authorization(value = "Bearer"))
     public Response approveItem(@PathParam("agiId") int agiId, @QueryParam("comments") String comments) {
         logger.info("approveItem({})", agiId);
@@ -1121,6 +1201,10 @@ public class ApprovalForumAgendaResource {
         // The approver is whoever holds the chairperson or secretary role (or the Approver role, where granted).
         Response denied = forbiddenUnless("approve agenda items", ROLE_APPROVER, ROLE_CHAIRPERSON, ROLE_SECRETARY);
         if (denied != null) return denied;
+        if (!hasAnyRole(ROLE_APPROVER)) {
+            denied = forbiddenUnlessDecidesForItem("approve agenda items", agiId);
+            if (denied != null) return denied;
+        }
         try {
             return Response.ok(agendaService.approveItem(agiId, comments, userName())).build();
         } catch (IllegalStateException e) {
@@ -1132,13 +1216,18 @@ public class ApprovalForumAgendaResource {
     @Path("/items/{agiId}/reject")
     @Produces("application/json")
     @Transactional
-    @ApiOperation(value = "Reject a submitted item with a reason (Approver/Chair)",
+    @ApiOperation(value = "Reject a submitted item with a reason (Approver, or the committee's chair or secretary)",
             authorizations = @Authorization(value = "Bearer"))
     public Response rejectItem(@PathParam("agiId") int agiId, @QueryParam("reason") String reason) {
         logger.info("rejectItem({})", agiId);
         tokenValidation(context);
-        Response denied = forbiddenUnless("reject agenda items", ROLE_APPROVER, ROLE_CHAIRPERSON);
+        // The same people who may approve may reject: the approver role, or the committee's chair or secretary.
+        Response denied = forbiddenUnless("reject agenda items", ROLE_APPROVER, ROLE_CHAIRPERSON, ROLE_SECRETARY);
         if (denied != null) return denied;
+        if (!hasAnyRole(ROLE_APPROVER)) {
+            denied = forbiddenUnlessDecidesForItem("reject agenda items", agiId);
+            if (denied != null) return denied;
+        }
         try {
             return Response.ok(agendaService.rejectItem(agiId, reason, userName())).build();
         } catch (IllegalStateException e) {
@@ -1156,6 +1245,8 @@ public class ApprovalForumAgendaResource {
         logger.info("reopenItem({})", agiId);
         tokenValidation(context);
         Response denied = forbiddenUnless("re-open agenda items", ROLE_SECRETARY, ROLE_CHAIRPERSON);
+        if (denied != null) return denied;
+        denied = forbiddenUnlessDecidesForItem("re-open agenda items", agiId);
         if (denied != null) return denied;
         try {
             return Response.ok(agendaService.reopenItem(agiId, reason, userName())).build();
@@ -1284,6 +1375,11 @@ public class ApprovalForumAgendaResource {
                                    @QueryParam("comments") String comments) {
         logger.info("closeCondition({}, {})", agcaId, status);
         tokenValidation(context);
+        if (!agendaService.canCloseCondition(agcaId, userName(), access())) {
+            logger.warn("Agenda: close condition refused for {} on condition {}", userName(), agcaId);
+            return Response.status(Response.Status.FORBIDDEN).entity(java.util.Collections.singletonMap("message",
+                    "Only the secretary or chair of the committee for this condition's agenda item can close or waive it.")).build();
+        }
         try {
             return Response.ok(agendaService.closeCondition(agcaId, status, comments, userName())).build();
         } catch (IllegalStateException e) {
@@ -1302,7 +1398,7 @@ public class ApprovalForumAgendaResource {
         logger.info("getReportSummary({}, {})", from, to);
         tokenValidation(context);
         java.sql.Timestamp[] range = dateRange(from, to);
-        return Response.ok(agendaService.getReportSummary(range[0], range[1])).build();
+        return Response.ok(agendaService.getReportSummary(range[0], range[1], userName(), access())).build();
     }
 
     @POST
@@ -1314,6 +1410,8 @@ public class ApprovalForumAgendaResource {
     public Response processCutOff() {
         logger.info("processCutOff()");
         tokenValidation(context);
+        Response denied = forbiddenUnlessScheduler("process agenda cut-offs");
+        if (denied != null) return denied;
         return Response.ok(agendaService.processCutOffs()).build();
     }
 
@@ -1326,6 +1424,8 @@ public class ApprovalForumAgendaResource {
     public Response processReminders() {
         logger.info("processReminders()");
         tokenValidation(context);
+        Response denied = forbiddenUnlessScheduler("send agenda reminders");
+        if (denied != null) return denied;
         return Response.ok(agendaService.processReminders()).build();
     }
 

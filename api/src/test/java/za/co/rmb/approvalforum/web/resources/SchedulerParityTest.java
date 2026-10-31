@@ -43,7 +43,7 @@ class SchedulerParityTest {
             {"ProcessUnsentMailRequests", "ProcessUnsentMailRequestSchedulerGroup", "ProcessUnsentMailRequestsTrigger", "af.scheduler.cron.entry", "0 * 5-20 * * ?"},
             {"ProcessCleanupRequests", "ProcessCleanupRequestSchedulerGroup", "ProcessCleanupRequestsTrigger", "af.scheduler.cron.cleanup.entry", "0 0 5 * * ?"},
             {"ProcessEmailReceivedRequest", "ProcessEmailReceivedRequestSchedulerGroup", "ProcessEmailReceivedRequestTrigger", "af.scheduler.cron.email-received.entry", "* /5 * * * ?"},
-            {"ProcessAgendaCutOffRequest", "ProcessAgendaCutOffRequestSchedulerGroup", "ProcessAgendaCutOffRequestTrigger", "af.scheduler.agenda.cutoff.cron.entry", "0 15 17 ? * THU"},
+            {"ProcessAgendaCutOffRequest", "ProcessAgendaCutOffRequestSchedulerGroup", "ProcessAgendaCutOffRequestTrigger", "af.scheduler.agenda.cutoff.cron.entry", "0 5 * * * ?"},
             {"ProcessAgendaReminderRequest", "ProcessAgendaReminderRequestSchedulerGroup", "ProcessAgendaReminderRequestTrigger", "af.scheduler.agenda.reminder.cron.entry", "0 0 9 ? * MON-FRI"},
     };
     private static final String QUARTZ_PACKAGE = "za.co.rmb.approvalforum.web.quartz.";

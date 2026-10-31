@@ -123,7 +123,7 @@ public class AgendaMailServiceImpl implements AgendaMailService {
                 item.getCounterpartyName() + " has been submitted for review on the " + committeeOf(item)
                         + " agenda for " + dateOf(item) + ". Please review the submission and return or approve it.")
                 + itemSections(item);
-        String to = join(reviewerEmails, analystRecipients(item));
+        String to = join(resolveEmails(reviewerEmails), analystRecipients(item));
         send(item.getAgiId(), null, "Submitted", to,
                 SUBJECT_PREFIX + "Item submitted for review: " + item.getCounterpartyName(), shell(content, dafLink(item.getAgiId(), null)),
                 creditPaperAttachment(item.getAgiId()));

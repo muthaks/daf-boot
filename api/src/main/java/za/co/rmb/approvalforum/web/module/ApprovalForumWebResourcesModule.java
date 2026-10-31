@@ -28,42 +28,43 @@ public class ApprovalForumWebResourcesModule {
             .put("af.base", "http://localhost:8197/approvalforum/api")
             .put("af.mail.base", "https://crsk-daf-dev.rmb.co.za")
             .put("af.token",
-                    "eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJlODA0NmQ1Mi03NWIwLTQ4ZjQtODJjOS0zNDJmNjZkZDAwOTUiLCJpc3MiOiJodHRwOi8vY3JlZGl0LnJtYi5jby56YSIsImF1ZCI6Imh0dHA6Ly9jcmVkaXQucm1iLmNvLnphL2FwcHJvdmFsZm9ydW0iLCJzdWIiOiJTTkFQQVBQX1JSQ2FwdHVyZXJAcm1iLmNvLnphIiwiaWF0IjoxNTcxNjQzMTE3LCJleHAiOjQ3MzM4ODMxMTcsInJvbGVzIjpbIkNyZWRpdEFuYWx5c3QiXSwicmVmcmVzaENvdW50IjowLCJyZWZyZXNoTGltaXQiOjF9.zFCMf-xKjIu67IlzDUxSnCIUNvdljXx4hxiQMiU6aC0")
+                    "")
             .put("af.environment", "DEV").put("af.devusers", "jvf,kir,kea,jjx,jeb,axu,shc,ffa,ixm,dvo")
             .put("af.adgroup.ou", "OU=DAF,OU=Credit,OU=Applications,OU=Rand Merchant Bank,DC=rmb,DC=co,DC=za")
             .put("af.keycloakConfig.url", "https://rmb-rbvdvcrsk01.fnb.co.za/auth")
             .put("af.keycloakConfig.realm", "master").put("af.keycloakConfig.clientId", "lms")
-            .put("af.keycloakConfig.secret", "0aab530d-6550-4c5b-939b-b9a7546ae99f")
+            .put("af.keycloakConfig.secret", "")
             .put("af.applicationservice.base", "http://rmb-rbvdvcrsk01.fnb.co.za:8580/application-2.6.0")
             .put("af.applicationservice.ash.base", "http://rmb-rbvdvcrsk01.fnb.co.za:8580/application-2.7.0")
             .put("af.applicationservice.token",
-                    "eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJkZmJkYjk4YS0wZjlmLTRhZjAtYjgxNS1jYTA2ZTgzZmMzZmIiLCJpc3MiOiJodHRwOi8vY3JlZGl0LnJtYi5jby56YSIsImF1ZCI6Imh0dHA6Ly9jcmVkaXQucm1iLmNvLnphL2FwcGxpY2F0aW9uIiwic3ViIjoic19lY2xjIiwiaWF0IjoxNTQ5MjYzNTY5LCJleHAiOjQ3MTE1MDM1NjksInJlZnJlc2hDb3VudCI6MCwicmVmcmVzaExpbWl0IjoxfQ.i9uWpJBgfnAsRDZ9_V6CcJZjTllPF-wsUni2d8vdpqM")
+                    "")
             .put("af.counterpartyservice.base", "http://rmb-rbvdvcrsk01.fnb.co.za:8580/counterparty-2.5.0")
             .put("af.counterpartyservice.ash.base", "http://rmb-rbvdvcrsk01.fnb.co.za:8580/counterparty-2.7.0")
             .put("af.counterpartyservice.token",
-                    "eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiI3N2IzMWIyNy0xMjU0LTQ5YTUtYjg0NS0yNTNmZTg4NmNmYTYiLCJpc3MiOiJodHRwOi8vY3JlZGl0LnJtYi5jby56YSIsImF1ZCI6Imh0dHA6Ly9jcmVkaXQucm1iLmNvLnphL2NvdW50ZXJwYXJ0eSIsInN1YiI6InNfZWNsYyIsImlhdCI6MTU0OTUyMzk5MSwiZXhwIjo0NzExNzYzOTkxLCJyZWZyZXNoQ291bnQiOjAsInJlZnJlc2hMaW1pdCI6MX0.K_f9YylJfAJn15my7khaW4oGwqSLM5sSBMalz3wsMxo")
+                    "")
             .put("af.refdataservice.base", "http://rmb-rbvdvcrsk01.fnb.co.za:8580/referencedata-2.5.0")
             .put("af.refdataservice.ash.base", "http://rmb-rbvdvcrsk01.fnb.co.za:8580/referencedata-2.5.1")
             .put("af.refdataservice.token",
-                    "eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJmZDE0NDE0Ni1mMGFiLTRiOGUtOTcyYi02YmU0OGUwYzljYjAiLCJpc3MiOiJodHRwOi8vY3JlZGl0LnJtYi5jby56YSIsImF1ZCI6Imh0dHA6Ly9jcmVkaXQucm1iLmNvLnphL3JlZmVyZW5jZWRhdGEiLCJzdWIiOiJzX2VjbGMiLCJpYXQiOjE1NTExNjQwODMsImV4cCI6NDcxMzQwNDA4MywicmVmcmVzaENvdW50IjowLCJyZWZyZXNoTGltaXQiOjF9.9ZXJbiUTuDpJd0n_s1-Ctizz9FC0C3UFpCMTt5HnPcI")
+                    "")
             .put("af.facilityservice.base", "http://rmb-rbvdvcrsk01.fnb.co.za:8580/facility-2.5.0")
             .put("af.facilityservice.ash.base", "http://rmb-rbvdvcrsk01.fnb.co.za:8580/facility-2.6.0")
             .put("af.facilityservice.token",
-                    "eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiI5NmQxNjA0Ny01Yzc5LTQ5YTAtOWQ3MS1lZjQ3YmNhNTkxMTciLCJpc3MiOiJodHRwOi8vY3JlZGl0LnJtYi5jby56YSIsImF1ZCI6Imh0dHA6Ly9jcmVkaXQucm1iLmNvLnphL2ZhY2lsaXR5Iiwic3ViIjoic19lY2xjIiwiaWF0IjoxNTQ5NTMwMDQ4LCJleHAiOjQ3MTE3NzAwNDgsInJlZnJlc2hDb3VudCI6MCwicmVmcmVzaExpbWl0IjoxfQ.25qIm8EuiFRUJzJO8VglMAudYcktKOOG7BSB8DSBjT8")
+                    "")
             .put("af.lumosservice.base", "https://lumos-apisix-dev.apps.dev-01-rb.ocp.fnb.co.za")
             .put("af.lumosservice.orchestration.token",
-                    "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJEQUYiLCJpc3MiOiJodHRwczovL2x1bW9zLmZpcnN0cmFuZC5jby56YSIsImF1ZCI6Im9yY2hlc3RyYXRpb24iLCJyb2xlcyI6WyJyb2xlIl0sImlhdCI6MTY3ODE3NDU4MCwiZXhwIjo0ODQwNDE0NTgwfQ.NIz-IDhLe1Sp9I7xlv3AwUUL-UocnOt3DsdA80uhxV5Bw9l9wQDzB1_1bNXxq-9TiYr0dMkmUQq4BQu2EFa2og")
+                    "")
             .put("af.lumosservice.workflow.token",
-                    "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJEQUYiLCJpc3MiOiJodHRwczovL2x1bW9zLmZpcnN0cmFuZC5jby56YSIsImF1ZCI6Im9yY2hlc3RyYXRpb24iLCJyb2xlcyI6WyJyb2xlIl0sImlhdCI6MTY3ODE3NDU4MCwiZXhwIjo0ODQwNDE0NTgwfQ.NIz-IDhLe1Sp9I7xlv3AwUUL-UocnOt3DsdA80uhxV5Bw9l9wQDzB1_1bNXxq-9TiYr0dMkmUQq4BQu2EFa2og")
+                    "")
             .put("af.rulesservice.base", "http://rmb-axu1-w:8197/approvalforumdrools/api/")
             .put("af.listmanagementservice.base", "http://rmb-axu1-w:8197/listmanagement/api")
-            .put("af.listmanagementservice.token","eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiI4OTdhODZmYy1iOTEzLTQxMzktYTk0Zi1kZGE5OWUyMjgwNjkiLCJpc3MiOiJodHRwOi8vY3JlZGl0LnJtYi5jby56YSIsImF1ZCI6Imh0dHA6Ly9jcmVkaXQucm1iLmNvLnphL2xpc3RtYW5hZ2VtZW50Iiwic3ViIjoiQVhVQHJtYi5jby56YSIsImlhdCI6MTU2NTE3NjY5MywiZXhwIjo0NzI3NDE2NjkzLCJyb2xlcyI6WyJCVENyZWRpdFVzZXIiLCJBc3NldE1hbmFnZW1lbnRVc2VyIiwiQ29tcGxpYW5jZVVzZXIiLCJBc3NldE1hbmFnZW1lbnRBZG1pbiIsIkNvbXBsaWFuY2VBZG1pbiIsIkJUQ3JlZGl0QWRtaW4iXSwicmVmcmVzaENvdW50IjowLCJyZWZyZXNoTGltaXQiOjF9.5PG-EiLTaJdxDgWSFd89btfZ2VNfTHU8hi0MbTcSaBw")
+            .put("af.listmanagementservice.token","")
             .put("af.scheduler.cron.entry", "0 * 5-20 * * ?")
             .put("af.scheduler.daily.mail.cron.entry", "0 0 8 ? * MON-FRI")
             .put("af.scheduler.daily.mails.unsent.cron.entry", "0 0 11,15,19 ? * MON-FRI")
             .put("af.scheduler.cron.cleanup.entry", "0 0 5 * * ?")
 //            .put("af.scheduler.cron.cleanup.adu.entry", "0 0 5 * * ?")
-            .put("af.scheduler.agenda.cutoff.cron.entry", "0 15 17 ? * THU")
+            // Hourly: each committee has its own cut-off day and time, and the job is idempotent.
+            .put("af.scheduler.agenda.cutoff.cron.entry", "0 5 * * * ?")
             .put("af.scheduler.agenda.reminder.cron.entry", "0 0 9 ? * MON-FRI")
             .put("af.agenda.reviewer.role", "ReviewAnalyst")
             // DAF roles (from the AD groups mapped in getAFGroups) that may check agenda items
@@ -88,11 +89,11 @@ public class ApprovalForumWebResourcesModule {
             .put("af.graph.proxy.host", "")
             .put("af.graph.proxy.port", "8080")
             .put("af.scheduler.cron.email-received.entry", "* /5 * * * ?")
-            .put("af.docstashservice.token", "eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiI5MzMwNDViYS04MjNjLTQxYTMtYjBlNy0wYWY3MGU2MjExMjYiLCJpc3MiOiJodHRwOi8vY3JlZGl0LnJtYi5jby56YSIsImF1ZCI6Imh0dHA6Ly9jcmVkaXQucm1iLmNvLnphL2RvY3N0YXNoIiwic3ViIjoiU05BUEFQUF9BcHByb3ZlcjFAcm1iLmNvLnphIiwiaWF0IjoxNTYwMTY0MTM5LCJleHAiOjQ3MjI0MDQxMzksInJvbGVzIjpbImRvY3N0YXNoX21lZXRpbmdfaW5mb191cGxvYWRlciIsImRvY3N0YXNoX3JlcG9ydGluZ191cGxvYWRlciIsImRvY3N0YXNoX2NvcnJlc3BvbmRlbmNlX3VwbG9hZGVyIiwiZG9jc3Rhc2hfY3JlZGl0X2FwcF9jb21wb25lbnRfdXBsb2FkZXIiLCJkb2NzdGFzaF9wb2xpY2llc19hbmRfZnJhbWV3b3Jrc191cGxvYWRlciIsImRvY3N0YXNoX2FsbG9jYXRpb25zX3VwbG9hZGVyIiwiZG9jc3Rhc2hfbGVnYWxfZG9jX3VwbG9hZGVyIiwiZG9jc3Rhc2hfY3JlZGl0X2Fzc2Vzc21lbnRfdXBsb2FkZXIiXSwicmVmcmVzaENvdW50IjowLCJyZWZyZXNoTGltaXQiOjF9.fES7T1rpZtxoetV4oVJMevxwKVXRcZPtadyJ1pfn9ms")
+            .put("af.docstashservice.token", "")
             .put("af.docstashservice.base", "https://rmb-rbvdvcrsk01.fnb.co.za:9080/docstash/api")
             .put("af.sso.servers", "http://rmb-rbvtsrska01:8080/auth/,http://rmb-rbvtsrskd01/auth/,http://rmb-rbvutrska01:8080/auth/,http://rmb-rbvutrskd01/auth/")
-            .put("af.mailservice.token", "eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiI3NWRjZjM2Yy01ODhlLTQzZGYtODI5My01MzMxZmYzYWY3ZjYiLCJpc3MiOiJodHRwOi8vY3JlZGl0LnJtYi5jby56YSIsImF1ZCI6Imh0dHA6Ly9jcmVkaXQucm1iLmNvLnphL21haWwiLCJzdWIiOiJTbmFwQXBwIiwiaWF0IjoxNTM0MzA1OTA0LCJleHAiOjQ2OTY1NDU5MDQsInJlZnJlc2hDb3VudCI6MCwicmVmcmVzaExpbWl0IjoxfQ.KL8wNrxzVfwwAHq95j5Igef-oNZChGJ0zAS-iyC1W98")
-            .put("af.lumos.mailservice.token","eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJtYWlsc2VydmljZSIsImlzcyI6Imh0dHBzOi8vbHVtb3MuZmlyc3RyYW5kLmNvLnphIiwiYXVkIjoibWFpbHNlcnZpY2UiLCJqdGkiOiI3NjkwOTJiYy04MzdjLTRlY2MtYjRmYS1kNGRkMTUxZDVlYmYiLCJyb2xlcyI6WyJpc3N1ZXIiXSwiaWF0IjoxNzI5Njg3Njk3LCJleHAiOjMzMzUyMDg3Njk3fQ.BNaDYPEi6FL2KyStwkstRgv9UE56JZkA1lIyrV6EzkUcF2W0KX57zC1JnOxkl5-DvKt4HYbAWA4J2OwjoTCLkA")
+            .put("af.mailservice.token", "")
+            .put("af.lumos.mailservice.token","")
             .put("af.mailservice.base", "https://rmb-rbvdvcrsk01.fnb.co.za:8280/mailservice")
             .put("af.lumos.mailservice.base", "https://rmb-rbvdvcrsk02.fnb.co.za/lumos-mailservice")
             .put("af.lumos.mailservice.read.limit", "10")
@@ -104,7 +105,7 @@ public class ApprovalForumWebResourcesModule {
             .put("af.secondescalation.hours", "72")
             .put("af.mail.attachment.zip", "false")
             .put("af.mail.enabled", "true")
-            .put("af.mail.test.emails", "shelley.speirs@rmb.co.za")
+            .put("af.mail.test.emails", "")
             .put("af.mail.attachment.limit", "10000000")
             .put("af.application.statuses", "Submitted for Approval")
             .put("af.facility.statuses", "Approved;Submitted for Approval")
@@ -117,17 +118,17 @@ public class ApprovalForumWebResourcesModule {
             .put("af.mailservice.reviewanalyst.test", "review_analyst_test@rmb.co.za")
             .put("af.support.mail.dl", "DLRMBBTCreditAnalytics@rmb.co.za")
             .put("af.holidayservice.url", "https://rmb-rbvdvcrsk02.fnb.co.za/holiday-service/api/")
-            .put("af.rulesservice.token", "eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJjMjg3MGU2OC1lYTkwLTRkYTEtOWMzYS04NWMyMDFmM2Q3ZTEiLCJpc3MiOiJodHRwOi8vY3JlZGl0LnJtYi5jby56YSIsImF1ZCI6Imh0dHA6Ly9jcmVkaXQucm1iLmNvLnphL2FwcHJvdmFsZm9ydW1kcm9vbHMiLCJzdWIiOiJEQUZfU3lzdGVtQHJtYi5jby56YSIsImlhdCI6MTU4ODU2Nzc0OCwiZXhwIjo0NzUwODA3NzQ4LCJyb2xlcyI6W10sInJlZnJlc2hDb3VudCI6MCwicmVmcmVzaExpbWl0IjoxfQ.nDwy1j2ZhmKx9eRy6yFyqFv-f7OVVqreNvSX0ZCOxLw")
+            .put("af.rulesservice.token", "")
             .put("af.lumosservice.refdata.token",
-                    "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJEQUYiLCJpc3MiOiJodHRwczovL2x1bW9zLmZpcnN0cmFuZC5jby56YSIsImF1ZCI6InJlZmVyZW5jZS1kYXRhIiwicm9sZXMiOlsicm9sZSJdLCJpYXQiOjE3NTQ2NDY3NTksImV4cCI6NDkxNjg4Njc1OX0.zjxpy5NeUVu9f0e4lORRughfb4jDwGYwFwl78AqrAUEL2bCMqNQhVdhLds-kSqrm3y6HD3LYAAD5tkw6DHTWNw")
+                    "")
             .put("af.lumosservice.partymodel.token",
-                    "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJBdXRoIERFViIsImlzcyI6Imh0dHBzOi8vbHVtb3MuZmlyc3RyYW5kLmNvLnphIiwiYXVkIjoicGFydHltb2RlbCIsInJvbGVzIjpbImlzc3VlciJdLCJpYXQiOjE2NDQ5OTU5ODIsImV4cCI6NDgwNzIzNTk4Mn0.5kcPSXgFchI-fkd0baL6RG7NUu5RKVrtTEM__fvQ-3b-3w_DNUNdNoIjOJ13sQ87zXJSQnBc1kWw6MIhJVtG0w")
+                    "")
             .put("af.lumosservice.lumosworkflow.token",
-                    "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJEQUYiLCJpc3MiOiJodHRwczovL2x1bW9zLmZpcnN0cmFuZC5jby56YSIsImF1ZCI6IndvcmtmbG93Iiwicm9sZXMiOlsicm9sZSJdLCJpYXQiOjE3NTQ2NDY3MDMsImV4cCI6NDkxNjg4NjcwM30.CG83uke_9i6arVuT0weXITmrVzivxTd2aD9IMWjg3cSFPoytrj5c9hEdUBVSAuwCKfnB-a46xmMrft91dyo7GA")
+                    "")
             .put("af.lumosservice.lumosworkflow.decision.token",
-                    "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJTX1NWQ19MVU1PU19NVUxDVF9RQUBybWIuY28uemEiLCJpc3MiOiJodHRwczovL2x1bW9zLmZpcnN0cmFuZC5jby56YSIsImF1ZCI6IndvcmtmbG93Iiwicm9sZXMiOlsiUHJ1ZGVudGlhbENhbGN1bGF0aW9uc3xDcmVhdGUiLCJDb2xsYXRlcmFsIFBvb2x8VXBkYXRlIiwiRmFjaWxpdHkgUER8RGVsZXRlIiwiQ29sbGF0ZXJhbCBQb29sfERlbGV0ZSIsIk9ibGlnb3J8VXBkYXRlIiwiT2JsaWdvcnxEZWxldGUiLCJSZWNvdXJzZUVudGl0eXxDcmVhdGUiLCJGYWNpbGl0eSBQRHxVcGRhdGUiLCJBcHByb3ZhbCBXb3JrZmxvd3xBcHByb3ZlIiwiQm9ycm93ZXJ8VXBkYXRlIiwiQ2xpZW50fENyZWF0ZSIsIkFwcHJvdmFsQ2FsY3VsYXRpb25zfFVwZGF0ZSIsIkNvbGxhdGVyYWxQcm92aWRlcnxDcmVhdGUiLCJBZG1pbnxWaWV3IiwiQ2xpZW50IExHRHxVcGRhdGUiLCJBcHByb3ZhbENhbGN1bGF0aW9uc3xEZWxldGUiLCJCb3Jyb3dlcnxEZWxldGUiLCJDcmVkaXRTdW1tYXJ5fENyZWF0ZSIsIkFwcHJvdmFsIFdvcmtmbG93fFJldmlldyBTdWJtaXQiLCJDbGllbnQgTEdEfERlbGV0ZSIsIkZhY2lsaXR5fENyZWF0ZSIsIkNvbmRpdGlvbnN8Q3JlYXRlIiwiQXBwcm92YWwgV29ya2Zsb3d8Q2FwdHVyZSBEZWNpc2lvbiIsIkNsaWVudCBQRHxDcmVhdGUiLCJMaW1pdHxDcmVhdGUiLCJGaW5hbmNpYWwgU3ByZWFkfENyZWF0ZSIsIkNyZWRpdFN1bW1hcnl8VXBkYXRlIiwiQ29uZGl0aW9uc3xEZWxldGUiLCJEaXNjYXJkfEFsbCIsIkNvbGxhdGVyYWx8RGVsZXRlIiwiRmFjaWxpdHkgUER8Q3JlYXRlIiwiTGltaXR8VXBkYXRlIiwiUmVjb3Vyc2VFbnRpdHl8RGVsZXRlIiwiQ29uZGl0aW9uc3xEb3dubG9hZCIsIkRpZ2l0YWwgQXBwcm92YWwgRm9ydW18Q2FwdHVyZSIsIkFwcHJvdmFsIFdvcmtmbG93fENyZWRpdCBTdWJtaXQiLCJDbGllbnR8RGVsZXRlIiwiRmFjaWxpdHkgTEdEfFVwZGF0ZSIsIkNvbGxhdGVyYWxQcm92aWRlcnxVcGRhdGUiLCJDb2xsYXRlcmFsIFBvb2x8TGluayIsIkJvcnJvd2VyfENyZWF0ZSIsIkZhY2lsaXR5IExHRHxEZWxldGUiLCJDb2xsYXRlcmFsfENyZWF0ZSIsIkNsaWVudHxVcGRhdGUiLCJGYWNpbGl0eXxVcGRhdGUiLCJGYWNpbGl0eXxEZWxldGUiLCJSZWZlcmVuY2UgRGF0YXxWaWV3IiwiQ2xpZW50IFBEfERlbGV0ZSIsIlBydWRlbnRpYWxDYWxjdWxhdGlvbnN8VXBkYXRlIiwiRmluYW5jaWFsIFNwcmVhZHxEZWxldGUiLCJPYmxpZ29yfENyZWF0ZSIsIkZpbmFuY2lhbCBTcHJlYWR8VXBkYXRlIiwiQ29sbGF0ZXJhbCBQb29sfENyZWF0ZSIsIkNsaWVudCBQRHxVcGRhdGUiLCJQcnVkZW50aWFsQ2FsY3VsYXRpb25zfERlbGV0ZSIsIkNsaWVudCBMR0R8Q3JlYXRlIiwiQXBwcm92YWxDYWxjdWxhdGlvbnN8Q3JlYXRlIiwiQ29sbGF0ZXJhbCBQb29sfFVubGluayIsIkNyZWRpdCBCZWhhdmlvciBDaGVja2xpc3R8VXBkYXRlIiwiQ29sbGF0ZXJhbHxVcGRhdGUiLCJEaWdpdGFsIEFwcHJvdmFsIEZvcnVtfEFwcHJvdmUiLCJSZWNvdXJzZUVudGl0eXxVcGRhdGUiLCJGYWNpbGl0eSBMR0R8Q3JlYXRlIiwiQ29uZGl0aW9uc3xVcGRhdGUiLCJMaW1pdHxEZWxldGUiLCJMdW1vc3xWaWV3IiwiQ29sbGF0ZXJhbFByb3ZpZGVyfERlbGV0ZSIsIiBDcmVkaXQgQmVoYXZpb3IgQ2hlY2tsaXN0fENyZWF0ZSJdLCJpYXQiOjE3NTY3NDkyOTgsImV4cCI6MTc2MTU3NjU5M30.KkF_ubDDPEBlT0dOc5MStlIfmI885kJom8D-xf3sCK0kMGK2OTMpf0C3CcuvPH86z3yodVxu_3MIAreG48YhXw")
+                    "")
             .put("af.lumosservice.lumosworkflow.client.token",
-            "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJvcmNoZXN0cmF0aW9uIiwiaXNzIjoiaHR0cHM6Ly9sdW1vcy5maXJzdHJhbmQuY28uemEiLCJhdWQiOiJ3b3JrZmxvdyIsInJvbGVzIjpbInJvbGUiXSwiaWF0IjoxNjY2ODc0NDYzLCJleHAiOjQ4MjkxMTQ0NjN9.9oMd9mmc9PP39VPi2hWuk4-ahIasc9jyaBMYBkmLOIR1pms08Ge-8hjMr09IS0aG8bheA1bPL6nl5YhBgijduQ")
+            "")
             .build();
     @Singleton
     @Named("af_settings")
@@ -259,6 +260,10 @@ public class ApprovalForumWebResourcesModule {
                 setProps(props, "af.agenda.application.statuses", agendaApplicationStatuses);
             if (agendaUiBase != null)
                 setProps(props, "af.agenda.ui.base", agendaUiBase);
+            String agendaCutOffCron = env("AF_SCHEDULER_AGENDA_CUTOFF_CRON");
+            String agendaReminderCron = env("AF_SCHEDULER_AGENDA_REMINDER_CRON");
+            if (agendaCutOffCron != null) setProps(props, "af.scheduler.agenda.cutoff.cron.entry", agendaCutOffCron);
+            if (agendaReminderCron != null) setProps(props, "af.scheduler.agenda.reminder.cron.entry", agendaReminderCron);
             if (agendaOversightRoles != null)
                 setProps(props, "af.agenda.oversight.roles", agendaOversightRoles);
             if (authServiceBase != null)
@@ -458,6 +463,16 @@ public class ApprovalForumWebResourcesModule {
             logger.error(ex.getMessage(), ex);
         }
 
+        // The agenda job endpoints accept only the user the scheduler signs in as: the subject of
+        // af.token unless AF_SCHEDULER_USER names it.
+        String schedulerUser = env("AF_SCHEDULER_USER");
+        String schedulerSubject = schedulerUser != null ? schedulerUser : tokenSubject(props.get("af.token"));
+        if (schedulerSubject != null) {
+            setProps(props, "af.scheduler.user", schedulerSubject);
+        } else {
+            logger.warn("AF_TOKEN is not set: the agenda cut-off and reminder jobs cannot sign in");
+        }
+
         Map<String, String> settings = Collections.unmodifiableMap(props);
         CreditDataTokenFilter.configure(settings);
         return settings;
@@ -484,7 +499,32 @@ public class ApprovalForumWebResourcesModule {
 
     private void setProps(Map<String, String> props, String propKey, String propValue) {
         props.put(propKey, propValue);
-        logger.info(propKey + ": " + propValue);
+        logger.info(propKey + ": " + (isCredential(propKey) ? "<set>" : propValue));
+    }
+
+    /** Credentials are never written to the log. */
+    static boolean isCredential(String key) {
+        String k = key.toLowerCase(java.util.Locale.ROOT);
+        return k.endsWith(".token") || k.endsWith(".secret") || k.endsWith(".clientsecret")
+                || k.endsWith(".apikey") || k.endsWith(".password") || k.endsWith(".pass");
+    }
+
+    /** The subject of a JWT, read without verification (it is our own token), or null. */
+    static String tokenSubject(String token) {
+        if (token == null || token.trim().isEmpty()) {
+            return null;
+        }
+        String[] parts = token.trim().split("\\.");
+        if (parts.length < 2) {
+            return null;
+        }
+        try {
+            String payload = new String(java.util.Base64.getUrlDecoder().decode(parts[1]), java.nio.charset.StandardCharsets.UTF_8);
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"sub\"\\s*:\\s*\"([^\"]+)\"").matcher(payload);
+            return m.find() ? m.group(1) : null;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     
