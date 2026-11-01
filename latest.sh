@@ -1,5 +1,5 @@
 #!/bin/bash
-# DAF (daf-boot) Deployment Script: daf-api, daf-rules, daf-docgen, daf-soap
+# DAF (daf-boot) Deployment Script: daf-api, daf-rules, daf-docgen, daf-soap, daf-mcp
 # Pulls the tag from env.properties, restarts the services, verifies them, tails logs
 # Usage: ./latest.sh
 
@@ -80,6 +80,7 @@ verify "http://localhost:${API_PORT:-14736}/approvalforum/api/actuator/health"
 verify "http://localhost:${RULES_PORT:-14737}/approvalforumdrools/api/actuator/health"
 verify "http://localhost:${DOCGEN_PORT:-14738}/docgen/actuator/health"
 verify "http://localhost:${SOAP_PORT:-14739}/approvalforum-soap/approvalforumexternal/ws/approvalForumExternal.wsdl"
+verify "http://localhost:${MCP_PORT:-14740}/actuator/health"
 
 echo ""
 echo "=========================================="

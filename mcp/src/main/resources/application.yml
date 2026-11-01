@@ -1,0 +1,59 @@
+# DAF MCP server. Settings come from the environment (env.properties on the server).
+spring:
+  application:
+    name: daf-mcp
+  ai:
+    mcp:
+      server:
+        name: daf
+        version: 1.0.0
+        type: SYNC
+        protocol: STREAMABLE
+        instructions: >-
+          Tools for the Delegated Authority Forum (DAF): credit application requests (workflow_*), the committee
+          Agenda Builder (agenda_*), request documents (documents_*), counterparties and facilities from CASDM
+          (external_*), Credit Data reference data (creditdata_*) and the DAF user directory (auth_*). Every tool
+          calls DAF as the signed-in user; DAF's own roles decide what is allowed. Tool descriptions end with the
+          DAF endpoint they call.
+        streamable-http:
+          mcp-endpoint: ${DAF_MCP_ENDPOINT:/mcp}
+          keep-alive-interval: ${DAF_MCP_KEEP_ALIVE:30s}
+        capabilities:
+          resource: false
+          prompt: false
+          completion: false
+        tool-change-notification: false
+        resource-change-notification: false
+        prompt-change-notification: false
+
+daf:
+  mcp:
+    # daf-api's JAX-RS application root (in the stack: the daf-api container)
+    api-base-url: ${DAF_API_BASE:http://daf-api:8080/approvalforum/api}
+    # Tool categories served: user (default), sign-in, system
+    categories: ${DAF_MCP_CATEGORIES:user}
+    # Tool groups served; blank = all
+    groups: ${DAF_MCP_GROUPS:}
+    read-only: ${DAF_MCP_READ_ONLY:false}
+    require-token: ${DAF_MCP_REQUIRE_TOKEN:true}
+    request-timeout: ${DAF_MCP_REQUEST_TIMEOUT:60s}
+    max-response-chars: ${DAF_MCP_MAX_RESPONSE_CHARS:200000}
+    max-download-bytes: ${DAF_MCP_MAX_DOWNLOAD_BYTES:10485760}
+
+server:
+  port: ${SERVER_PORT:8080}
+  # The DAF token carries the user's roles; same limit as daf-api
+  max-http-request-header-size: ${MAX_HTTP_HEADER_SIZE:65536}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: ${DEFAULT_LOG_LEVEL:INFO}

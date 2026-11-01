@@ -17,6 +17,7 @@
         <module>rules</module>
         <module>docgen</module>
         <module>soap</module>
+        <module>mcp</module>
     </modules>
 
     <properties>

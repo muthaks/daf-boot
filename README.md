@@ -8,6 +8,7 @@ The Delegated Authority Forum backend (the legacy review mandates services) on J
 | `rules/`       | `daf-rules`: the legacy `approvalforumdrools` war on Drools 10, 3 endpoints under `/approvalforumdrools/api` |
 | `docgen/`      | `daf-docgen`: the legacy `approvalforum-docgen` (PDF agendas and minutes) under `/docgen`                    |
 | `soap/`        | `daf-soap`: the legacy `approvalforum-soap` (external create/cancel requests) under `/approvalforum-soap`    |
+| `mcp/`         | `daf-mcp`: the DAF API as MCP tools for agents (Model Context Protocol over Streamable HTTP, `/mcp`), [`docs/MCP.md`](docs/MCP.md) |
 | `support/`     | Shared compatibility code: SQL Server dialect, legacy JSON and error behaviour, Guice-style circular proxies |
 | `legacy-libs/` | The legacy client and model jars, rewritten from `javax` to `jakarta` at build time (Eclipse Transformer); `lib/` holds the three `approvalforumrules` jars, which Nexus does not have |
 | `tools/`       | `sync-legacy.py` (copies the legacy sources), `legacy-endpoints.py` (the expected endpoint lists)            |
@@ -36,8 +37,8 @@ The Delegated Authority Forum backend (the legacy review mandates services) on J
 
 | Step   | Detail                                                                                                                                                               |
 | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Build  | TeamCity **Daf Boot → Build** (`cat-utils` `.teamcity/DafBoot`): Maven on JDK 25, images `credit/daf-boot/{daf-api,daf-rules,daf-docgen,daf-soap}:<n>` and `:latest` |
-| Server | Platform DEV server `rmb-rbvdvcsdm01`, stack dir `/opt/docker/backend/daf-boot`, host ports 14736–14739, subnet `172.31.100.96/29`                                   |
+| Build  | TeamCity **Daf Boot → Build** (`cat-utils` `.teamcity/DafBoot`): Maven on JDK 25, images `credit/daf-boot/{daf-api,daf-rules,daf-docgen,daf-soap,daf-mcp}:<n>` and `:latest` |
+| Server | Platform DEV server `rmb-rbvdvcsdm01`, stack dir `/opt/docker/backend/daf-boot`, host ports 14736–14740, subnet `172.31.100.96/29`                                   |
 | Tags   | DEV always runs `:latest`. Pinned builds (`-b <n>` or a release manifest) are for QA/UAT/PROD                                                                        |
 
 | Container    | Host port | Replaces (legacy)                                |
@@ -46,6 +47,7 @@ The Delegated Authority Forum backend (the legacy review mandates services) on J
 | `daf-rules`  | 14737     | `approvalforumdrools` war                        |
 | `daf-docgen` | 14738     | `daf-docgen`                                     |
 | `daf-soap`   | 14739     | `approvalforum-soap` war in the `daf-api` Tomcat |
+| `daf-mcp`    | 14740     | new: the API as MCP tools for agents             |
 
 | Purpose                 | Command (VPN, in this repo)                                                               |
 | ----------------------- | ----------------------------------------------------------------------------------------- |

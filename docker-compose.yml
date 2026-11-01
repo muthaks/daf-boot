@@ -62,6 +62,23 @@ services:
     networks:
       - daf_net
 
+  # The DAF API as MCP tools for agents (Model Context Protocol over Streamable HTTP, /mcp), calling daf-api
+  # with the caller's own DAF token
+  daf-mcp:
+    image: ${DOCKER_REGISTRY}/credit/daf-boot/daf-mcp:${BUILD_NUMBER:-latest}
+    container_name: daf-mcp
+    dns:
+      - ${DNS_SERVER}
+    env_file:
+      - env.properties
+    environment:
+      DAF_API_BASE: http://daf-api:8080/approvalforum/api
+    ports:
+      - "${MCP_PORT:-14740}:8080"
+    restart: unless-stopped
+    networks:
+      - daf_net
+
 networks:
   daf_net:
     driver: bridge
